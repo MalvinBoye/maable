@@ -1,0 +1,55 @@
+# Supabase local development config
+# https://supabase.com/docs/guides/cli/config
+
+project_id = "gcxntisholznlsrtrdoe"
+
+[api]
+port = 54321
+schemas = ["public", "storage"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 15
+
+[studio]
+port = 54323
+
+[inbucket]
+port = 54324
+smtp_port = 54325
+pop3_port = 54326
+
+[storage]
+file_size_limit = "50MiB"
+
+[auth]
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["exp://localhost:8081", "maable://"]
+jwt_expiry = 3600
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+enable_confirmations = false  # set to true in production
+
+[auth.sms]
+enable_signup = false
+
+[functions.award-xp]
+verify_jwt = true
+
+[functions.oauth-canvas]
+verify_jwt = false  # handles its own auth
+
+[functions.oauth-managebac]
+verify_jwt = false
+
+[functions.oauth-linkedin]
+verify_jwt = false
+
+[functions.revenuecat-webhook]
+verify_jwt = false  # signed with webhook secret instead

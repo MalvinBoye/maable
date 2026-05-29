@@ -1,0 +1,141 @@
+@import "tailwindcss";
+
+@theme {
+  /* Default skin: Maable Classic — light, sketch, hand-drawn */
+  --color-skin-bg: #f5f4f0;
+  --color-skin-surface: #ffffff;
+  --color-skin-border: #e5e3dc;
+  --color-skin-text: #1a1916;
+  --color-skin-muted: #8a8880;
+  --color-skin-accent: #1a1916;
+  --color-skin-xp: #c9a84c;
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Playfair Display", ui-serif, Georgia, serif;
+
+  --radius-card: 0.75rem;
+  --radius-btn: 0.5rem;
+}
+
+@layer base {
+  *, *::before, *::after { box-sizing: border-box; }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    background-color: var(--color-skin-bg);
+    color: var(--color-skin-text);
+    font-family: var(--font-sans);
+    min-height: 100dvh;
+    /* Subtle grain texture */
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-skin-accent);
+    outline-offset: 2px;
+  }
+}
+
+/* ─── Typography ─────────────────────────────────────────────────────────────── */
+.font-serif { font-family: var(--font-serif); }
+
+.wordmark {
+  font-family: var(--font-serif);
+  font-style: italic;
+  letter-spacing: -0.02em;
+}
+
+/* ─── Skin switching (future) ────────────────────────────────────────────────── */
+[data-skin="dark"] {
+  --color-skin-bg: #09090b;
+  --color-skin-surface: #18181b;
+  --color-skin-border: #27272a;
+  --color-skin-text: #fafafa;
+  --color-skin-muted: #71717a;
+  --color-skin-accent: #6366f1;
+  --color-skin-xp: #f59e0b;
+}
+
+/* ─── Card hover glow ────────────────────────────────────────────────────────── */
+.card-hover-reveal {
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ─── Chibi face animations ──────────────────────────────────────────────────── */
+@keyframes chibi-blink {
+  0%, 90%, 100% { transform: scaleY(1); }
+  95% { transform: scaleY(0.05); }
+}
+
+@keyframes chibi-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+@keyframes chibi-look-left {
+  0%, 100% { transform: translateX(0); }
+  30%, 70% { transform: translateX(-4px); }
+}
+
+@keyframes chibi-look-right {
+  0%, 100% { transform: translateX(0); }
+  30%, 70% { transform: translateX(4px); }
+}
+
+@keyframes chibi-pulse {
+  0%, 100% { box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
+  50% { box-shadow: 0 8px 32px rgba(0,0,0,0.15); }
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes card-fly-in {
+  from { opacity: 0; transform: translateY(40px) scale(0.9); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ─── ADHD Mode ───────────────────────────────────────────────────────────────── */
+@keyframes adhd-slide {
+  from { background-position: 0% 0%; }
+  to { background-position: 200% 0%; }
+}
+
+@keyframes adhd-border {
+  0%   { box-shadow: inset 0 0 0 3px #ff6b6b44; }
+  16%  { box-shadow: inset 0 0 0 3px #feca5744; }
+  33%  { box-shadow: inset 0 0 0 3px #48dbfb44; }
+  50%  { box-shadow: inset 0 0 0 3px #ff9ff344; }
+  66%  { box-shadow: inset 0 0 0 3px #54a0ff44; }
+  83%  { box-shadow: inset 0 0 0 3px #1dd1a144; }
+  100% { box-shadow: inset 0 0 0 3px #ff6b6b44; }
+}
+
+/* When ADHD mode is active, buttons get an extra bounce */
+body.adhd-mode button:active {
+  transform: scale(0.93) rotate(-1deg);
+  transition: transform 0.08s ease;
+}
+
+body.adhd-mode a:hover {
+  filter: saturate(1.4);
+}
+
+/* Gently wiggle interactive elements */
+body.adhd-mode input:focus,
+body.adhd-mode textarea:focus {
+  outline: 2px solid #ff6b6b66;
+  outline-offset: 2px;
+}
+
+/* ─── Architect Mode label fade ───────────────────────────────────────────────── */
+@keyframes arch-pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}

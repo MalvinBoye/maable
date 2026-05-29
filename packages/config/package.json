@@ -1,0 +1,13 @@
+{
+  "name": "@maable/config",
+  "version": "0.1.0",
+  "private": true,
+  "exports": {
+    "./typescript": "./typescript/base.json",
+    "./typescript/next": "./typescript/next.json",
+    "./typescript/react-native": "./typescript/react-native.json",
+    "./eslint/base": "./eslint/base.js",
+    "./eslint/next": "./eslint/next.js",
+    "./eslint/react-native": "./eslint/react-native.js"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "extends": "@maable/config/typescript/next",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": [
+        "./src/*"
+      ],
+      "@maable/core": [
+        "../../packages/core/src/index.ts"
+      ],
+      "@maable/core/*": [
+        "../../packages/core/src/*"
+      ]
+    },
+    "noEmit": true
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}
