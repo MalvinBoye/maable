@@ -37,7 +37,7 @@ export async function createTask(data: {
     due_time:   data.due_time ?? null,
     status:     'todo' as TaskStatus,
     xp_reward:  XP_BY_PRIORITY[data.priority],
-    sort_order: Date.now(),
+    sort_order: Math.floor(Date.now() / 1000),
     tags:       data.tags ?? [],
   })
 

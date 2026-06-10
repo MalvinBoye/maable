@@ -10,16 +10,18 @@ import { BreathingModal } from '@/components/app/breathing-modal'
 import { AvatarDisplay } from '@/components/app/avatar-builder'
 import { useADHD } from '@/lib/adhd-context'
 import { useArchitect } from '@/lib/architect-context'
+import { useSimpleMode } from '@/lib/simple-mode-context'
 
 const NAV_SECTIONS = [
   {
     label: 'explore',
     items: [
-      { label: 'Home',     href: '/dashboard',  icon: '⌂' },
-      { label: 'Tasks',    href: '/tasks',       icon: '◎' },
-      { label: 'Habits',   href: '/habits',      icon: '◈' },
-      { label: 'Notes',    href: '/notes',       icon: '✦' },
-      { label: 'Schedule', href: '/schedule',    icon: '◫' },
+      { label: 'Home',       href: '/dashboard',  icon: '⌂' },
+      { label: 'Mood Board', href: '/moodboard',  icon: '◫' },
+      { label: 'Tasks',      href: '/tasks',      icon: '◎' },
+      { label: 'Habits',     href: '/habits',     icon: '◈' },
+      { label: 'Notes',      href: '/notes',      icon: '✦' },
+      { label: 'Schedule',   href: '/schedule',   icon: '⊟' },
     ],
   },
   {
@@ -29,7 +31,6 @@ const NAV_SECTIONS = [
       { label: 'Career',   href: '/career',      icon: '▲' },
       { label: 'Hobbies',  href: '/hobbies',     icon: '◇' },
       { label: 'Journal',  href: '/journal',     icon: '✎' },
-      { label: 'Board',    href: '/board',       icon: '◻' },
       { label: 'Games',    href: '/games',       icon: '⊞' },
     ],
   },
@@ -76,6 +77,7 @@ export function MaableNav({ profile, hasNotifications = false }: MaableNavProps)
   const displayName = profile?.display_name ?? 'User'
   const [greeting] = useState(() => buildGreeting(displayName))
   const { adhdMode, ultraMode, adhdLevel, toggleADHD } = useADHD()
+  const { simpleMode, toggleSimpleMode } = useSimpleMode()
   useArchitect()
 
   useEffect(() => {
@@ -162,6 +164,31 @@ export function MaableNav({ profile, hasNotifications = false }: MaableNavProps)
           </Link>
 
           <TutorialDrawer />
+
+          {/* Focus mode indicator pill */}
+          {simpleMode && (
+            <motion.button
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              onClick={() => { toggleSimpleMode() }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                backgroundColor: 'rgba(26,25,22,0.06)',
+                border: '1px solid rgba(26,25,22,0.12)',
+                borderRadius: 20, padding: '4px 12px',
+                cursor: 'pointer',
+              }}
+            >
+              <motion.span
+                animate={{ opacity: [1, 0.4, 1] }}
+                transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}
+                style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#c9a84c', flexShrink: 0 }}
+              />
+              <span style={{ fontFamily: 'Georgia, serif', fontStyle: 'italic', fontSize: '0.72rem', color: 'rgba(26,25,22,0.55)' }}>
+                focus
+              </span>
+            </motion.button>
+          )}
 
           {/* Breathing button */}
           <button
@@ -382,6 +409,42 @@ export function MaableNav({ profile, hasNotifications = false }: MaableNavProps)
                       <p style={{ fontSize: '0.58rem', letterSpacing: '0.20em', textTransform: 'uppercase', color: 'rgba(201,168,76,0.35)', padding: '10px 24px 6px', fontFamily: 'Georgia, serif' }}>
                         modes
                       </p>
+
+                      {/* Focus Mode */}
+                      <button
+                        onClick={() => { setMenuOpen(false); setTimeout(toggleSimpleMode, 120) }}
+                        className="flex items-center justify-between px-6 py-3 transition-all"
+                        style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}
+                        onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.04)' }}
+                        onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}
+                      >
+                        <div className="flex items-center gap-3">
+                          <motion.span
+                            animate={simpleMode ? { opacity: [1, 0.5, 1] } : { opacity: 1 }}
+                            transition={simpleMode ? { repeat: Infinity, duration: 2 } : {}}
+                            style={{ fontSize: '0.9rem', color: simpleMode ? '#c9a84c' : 'rgba(255,255,255,0.28)' }}
+                          >
+                            {simpleMode ? '◉' : '◎'}
+                          </motion.span>
+                          <div className="flex flex-col gap-0.5">
+                            <span style={{ fontFamily: 'Georgia, serif', fontStyle: 'italic', fontSize: '0.82rem', color: simpleMode ? '#c9a84c' : 'rgba(255,255,255,0.45)' }}>
+                              Focus Mode
+                            </span>
+                            <span style={{ fontFamily: 'Georgia, serif', fontStyle: 'italic', fontSize: '0.62rem', color: 'rgba(255,255,255,0.22)' }}>
+                              Strip to the essentials
+                            </span>
+                          </div>
+                        </div>
+                        <span style={{
+                          fontSize: '0.58rem', letterSpacing: '0.12em', textTransform: 'uppercase',
+                          color: simpleMode ? '#c9a84c' : 'rgba(255,255,255,0.20)',
+                          fontFamily: 'Georgia, serif',
+                          border: `1px solid ${simpleMode ? 'rgba(201,168,76,0.50)' : 'rgba(255,255,255,0.10)'}`,
+                          padding: '1px 5px', borderRadius: 2,
+                        }}>
+                          {simpleMode ? 'on' : 'off'}
+                        </span>
+                      </button>
 
                       {/* ADHD Mode */}
                       <button

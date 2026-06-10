@@ -33,10 +33,10 @@ export default async function CareerPage() {
         integrationColor: '#0077b5',
         integrationHint: 'Connect LinkedIn to import your skills and generate interview prep cards.',
         quickLinks: [
-          { label: 'Career notes',        href: '/notes',   icon: '✦' },
-          { label: 'Interview prep cards', href: '/notes',   icon: '◎' },
-          { label: 'GitHub + more',       href: '/connect', icon: '◈' },
-          { label: 'Weekly plan',         href: '/schedule', icon: '◫' },
+          { label: 'Notes',        href: '/notes',    icon: '✦', description: 'Career notes & ideas' },
+          { label: 'Flashcards',   href: '/notes',    icon: '◎', description: 'Interview prep revision' },
+          { label: 'Integrations', href: '/connect',  icon: '◈', description: 'GitHub, LinkedIn & more' },
+          { label: 'Schedule',     href: '/schedule', icon: '◫', description: 'Plan your week' },
         ],
         tips: [
           'Log each job application as a goal with a due date.',

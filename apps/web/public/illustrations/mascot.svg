@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 400" fill="none">
+  <defs>
+    <filter id="ink" x="-6%" y="-6%" width="112%" height="112%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.028" numOctaves="4" seed="9" result="noise"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="3.2" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+  </defs>
+
+  <!-- ── Mug body ── -->
+  <path
+    d="M 72 148 L 65 330 Q 64 368 210 370 Q 356 368 355 330 L 348 148 Z"
+    fill="#111110" filter="url(#ink)"
+  />
+  <ellipse cx="210" cy="148" rx="138" ry="30" fill="#111110" filter="url(#ink)"/>
+
+  <!-- ── Foam surface ── -->
+  <ellipse cx="210" cy="146" rx="126" ry="25" fill="#f8f6f1"/>
+  <ellipse cx="210" cy="146" rx="126" ry="25" fill="none" stroke="#d4d0c8" strokeWidth="1.2"/>
+
+  <!-- ── Handle ── -->
+  <path d="M 348 192 Q 412 196 416 252 Q 418 308 348 314"
+    stroke="#111110" strokeWidth="32" fill="none" strokeLinecap="round" filter="url(#ink)"/>
+  <path d="M 350 210 Q 390 214 393 254 Q 394 294 350 298"
+    stroke="#f8f6f1" strokeWidth="14" fill="none" strokeLinecap="round"/>
+
+  <!-- ══ CHUNKY latte-art figure (Michelin-style thick limbs) ══ -->
+
+  <!-- head -->
+  <circle cx="244" cy="133" r="14" stroke="#111110" strokeWidth="2.8" fill="none"/>
+
+  <!-- steam swirl -->
+  <path d="M 250 119 Q 256 110 248 103 Q 241 96 246 89"
+    stroke="#111110" strokeWidth="2.8" fill="none" strokeLinecap="round"/>
+
+  <!-- relaxed closed eyes -->
+  <path d="M 237 131 Q 240 128 244 131" stroke="#111110" strokeWidth="2.6" fill="none" strokeLinecap="round"/>
+  <path d="M 246 131 Q 249 128 253 131" stroke="#111110" strokeWidth="2.6" fill="none" strokeLinecap="round"/>
+
+  <!-- body (chunky sausage, filled oval) -->
+  <ellipse cx="240" cy="158" rx="9" ry="8" fill="#111110"/>
+
+  <!-- LEFT ARM — thick sausage tube -->
+  <path d="M 234 153 Q 220 147 208 150"
+    stroke="#111110" strokeWidth="9" fill="none" strokeLinecap="round"/>
+  <!-- left forearm -->
+  <path d="M 208 150 Q 200 154 199 161"
+    stroke="#111110" strokeWidth="8" fill="none" strokeLinecap="round"/>
+  <!-- left hand blob -->
+  <circle cx="199" cy="163" r="6" fill="#111110"/>
+
+  <!-- RIGHT ARM — thick sausage tube -->
+  <path d="M 246 153 Q 260 147 272 150"
+    stroke="#111110" strokeWidth="9" fill="none" strokeLinecap="round"/>
+  <!-- right forearm -->
+  <path d="M 272 150 Q 280 154 281 161"
+    stroke="#111110" strokeWidth="8" fill="none" strokeLinecap="round"/>
+  <!-- right hand blob -->
+  <circle cx="281" cy="163" r="6" fill="#111110"/>
+
+  <!-- LEFT LEG — thick sausage -->
+  <path d="M 234 164 Q 227 173 222 181"
+    stroke="#111110" strokeWidth="9" fill="none" strokeLinecap="round"/>
+  <!-- left shin -->
+  <path d="M 222 181 Q 218 188 217 194"
+    stroke="#111110" strokeWidth="8" fill="none" strokeLinecap="round"/>
+  <!-- left foot blob -->
+  <ellipse cx="215" cy="197" rx="7" ry="5" fill="#111110"/>
+
+  <!-- RIGHT LEG — thick sausage -->
+  <path d="M 246 164 Q 253 173 258 181"
+    stroke="#111110" strokeWidth="9" fill="none" strokeLinecap="round"/>
+  <!-- right shin -->
+  <path d="M 258 181 Q 262 188 263 194"
+    stroke="#111110" strokeWidth="8" fill="none" strokeLinecap="round"/>
+  <!-- right foot blob -->
+  <ellipse cx="265" cy="197" rx="7" ry="5" fill="#111110"/>
+</svg>

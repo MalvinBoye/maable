@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 400" width="520" height="400" fill="none">
+  <defs>
+    <!-- Rough ink / brush feel -->
+    <filter id="ink" x="-10%" y="-10%" width="120%" height="120%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="4" seed="8" result="noise"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="3.5" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+  </defs>
+
+  <!-- ── Left eye ─────────────────────────────────────────────── -->
+  <!-- Outer fill (dark almond, wide elongated) -->
+  <path d="
+    M 62 172
+    Q 68  136  150 132
+    Q 222  128  268 158
+    Q 280  172  268 195
+    Q 235  228  150 230
+    Q 68   228  55  198
+    Q 48   185  62  172 Z
+  " fill="#1a1916" filter="url(#ink)"/>
+  <!-- Inner white -->
+  <path d="
+    M 90 172
+    Q 96  148  150 146
+    Q 210  143  252 165
+    Q 260  174  250 192
+    Q 222  212  150 214
+    Q 88   212  80  194
+    Q 74   182  90  172 Z
+  " fill="white"/>
+  <!-- Pupil / iris (small dark oval inside) -->
+  <ellipse cx="172" cy="180" rx="22" ry="18" fill="#1a1916"/>
+
+  <!-- ── Right eye ────────────────────────────────────────────── -->
+  <!-- Outer fill -->
+  <path d="
+    M 286 160
+    Q 295  128  370 124
+    Q 435  122  462 152
+    Q 472  166  460 190
+    Q 440  222  370 226
+    Q 298  226  280 196
+    Q 272  178  286 160 Z
+  " fill="#1a1916" filter="url(#ink)"/>
+  <!-- Inner white -->
+  <path d="
+    M 306 160
+    Q 316  136  370 134
+    Q 428  132  450 156
+    Q 458  168  448 188
+    Q 430  212  370 215
+    Q 310  214  296 192
+    Q 288  176  306 160 Z
+  " fill="white"/>
+  <!-- Pupil / iris -->
+  <ellipse cx="378" cy="175" rx="20" ry="17" fill="#1a1916"/>
+
+  <!-- ── Bridge connecting inner eye corners ──────────────────── -->
+  <path d="M 268 172 Q 276 165 286 168" stroke="#1a1916" stroke-width="30" stroke-linecap="round" fill="none" filter="url(#ink)"/>
+
+  <!-- ── Nose stem (goes straight down from bridge) ───────────── -->
+  <path d="M 276 185 Q 278 210 280 238 Q 282 256 280 272"
+        stroke="#1a1916" stroke-width="15" stroke-linecap="round" fill="none" filter="url(#ink)"/>
+
+  <!-- ── Nose tip blob ─────────────────────────────────────────── -->
+  <ellipse cx="280" cy="278" rx="24" ry="20" fill="#1a1916" filter="url(#ink)"/>
+
+  <!-- Short connector to mouth -->
+  <path d="M 280 296 L 280 312" stroke="#1a1916" stroke-width="13" stroke-linecap="round"/>
+
+  <!-- ── Mouth ──────────────────────────────────────────────────── -->
+  <!-- Outer fill (wide flat oval) -->
+  <path d="
+    M 120 332
+    Q 128  295  280 298
+    Q 432  295  440 332
+    Q 432  372  280 376
+    Q 128  372  120 332 Z
+  " fill="#1a1916" filter="url(#ink)"/>
+  <!-- Inner white -->
+  <path d="
+    M 148 332
+    Q 156  310  280 313
+    Q 404  310  412 332
+    Q 404  356  280 358
+    Q 156  356  148 332 Z
+  " fill="white"/>
+
+</svg>

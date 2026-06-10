@@ -120,7 +120,7 @@ export async function createHabit(data: {
     current_streak: 0,
     longest_streak: 0,
     is_archived:   false,
-    sort_order:    Date.now(),
+    sort_order:    Math.floor(Date.now() / 1000),
   })
 
   revalidatePath('/habits')

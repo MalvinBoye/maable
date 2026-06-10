@@ -317,6 +317,23 @@ export function AvatarDisplay({
     return () => window.removeEventListener('maable-avatar-update', handleUpdate)
   }, [])
 
+  // Uploaded photo (real URL) always takes priority
+  const isPhoto = avatarUrl && (avatarUrl.startsWith('http') || avatarUrl.startsWith('blob'))
+  if (isPhoto) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={avatarUrl!}
+        alt="avatar"
+        width={size}
+        height={size}
+        className={className}
+        draggable={false}
+        style={{ objectFit: 'cover', flexShrink: 0, borderRadius: 4 }}
+      />
+    )
+  }
+
   if (config) {
     return (
       <div
@@ -329,7 +346,7 @@ export function AvatarDisplay({
   }
 
   const src = avatarUrl
-    ? (avatarUrl.startsWith('/') || avatarUrl.startsWith('http') ? avatarUrl : `/illustrations/${avatarUrl}.png`)
+    ? (avatarUrl.startsWith('/') ? avatarUrl : `/illustrations/${avatarUrl}.png`)
     : '/illustrations/avatar-user.png'
 
   return (

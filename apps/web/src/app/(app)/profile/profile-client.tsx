@@ -5,8 +5,9 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { createClient } from '@/lib/supabase/client'
 import type { Profile, XpTransaction } from '@maable/core'
 import type { ProfilePin } from './page'
-import { updateProfile, savePin, deletePin } from './actions'
-import { AvatarCustomizerModal, AvatarDisplay } from '@/components/app/avatar-builder'
+import { updateProfile, savePin, deletePin, updateAvatarUrl } from './actions'
+import { AvatarDisplay } from '@/components/app/avatar-builder'
+import { ImageCropModal } from '@/components/app/image-crop-modal'
 
 // ─── Level / class system ─────────────────────────────────────────────────────
 
@@ -83,7 +84,7 @@ function PinUploader({ userId, onUploaded }: { userId: string; onUploaded: (pin:
       const { data: { publicUrl } } = supabase.storage.from('pins').getPublicUrl(path)
       const result = await savePin(publicUrl, caption.trim() || null)
       if (!result.error) {
-        onUploaded({ id: `pin-${Date.now()}`, image_url: publicUrl, caption: caption.trim() || null, sort_order: Date.now(), created_at: new Date().toISOString() })
+        onUploaded({ id: `pin-${Date.now()}`, image_url: publicUrl, caption: caption.trim() || null, sort_order: Math.floor(Date.now() / 1000), created_at: new Date().toISOString() })
         setCaption('')
       }
     } finally { setUploading(false) }
@@ -175,7 +176,6 @@ export function ProfileClient({
   pins: ProfilePin[]
 }) {
   const [editing, setEditing] = useState(false)
-  const [showAvatarPicker, setShowAvatarPicker] = useState(false)
   const [displayName, setDisplayName] = useState(profile.display_name)
   const [username, setUsername] = useState(profile.username)
   const [bio, setBio] = useState(profile.bio ?? '')
@@ -184,6 +184,31 @@ export function ProfileClient({
   const [saved, setSaved] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [avatarKey, setAvatarKey] = useState(0)
+  const [avatarUploading, setAvatarUploading] = useState(false)
+  const [avatarCropSrc, setAvatarCropSrc] = useState<string | null>(null)
+  const avatarInputRef = useRef<HTMLInputElement>(null)
+  const supabase = createClient()
+
+  const handleAvatarUpload = useCallback(async (file: File) => {
+    if (!file.type.startsWith('image/')) return
+    setAvatarUploading(true)
+    try {
+      const ext = file.name.split('.').pop() ?? 'jpg'
+      const path = `${profile.id}/avatar.${ext}`
+      const { error: upErr } = await supabase.storage.from('avatars').upload(path, file, { contentType: file.type, upsert: true })
+      if (upErr) return
+      const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(path)
+      const urlWithBust = `${publicUrl}?t=${Date.now()}`
+      const result = await updateAvatarUrl(urlWithBust)
+      if (!result?.error) {
+        setAvatarUrl(urlWithBust)
+        setAvatarKey(k => k + 1)
+        // Clear built avatar so photo shows
+        localStorage.removeItem('maable-avatar-config')
+        window.dispatchEvent(new CustomEvent('maable-avatar-update', { detail: null }))
+      }
+    } finally { setAvatarUploading(false) }
+  }, [profile.id, supabase])
 
   const xpInLevel = profile.total_xp - (profile.level - 1) * 1000
   const xpProgress = (xpInLevel / 1000) * 100
@@ -217,10 +242,15 @@ export function ProfileClient({
   return (
     <>
       <AnimatePresence>
-        {showAvatarPicker && (
-          <AvatarCustomizerModal
-            onSave={() => { setAvatarKey(k => k + 1); setShowAvatarPicker(false) }}
-            onClose={() => setShowAvatarPicker(false)}
+        {avatarCropSrc && (
+          <ImageCropModal
+            src={avatarCropSrc}
+            aspect={1}
+            onConfirm={(blob, _url) => {
+              setAvatarCropSrc(null)
+              void handleAvatarUpload(new File([blob], 'avatar.png', { type: 'image/png' }))
+            }}
+            onClose={() => setAvatarCropSrc(null)}
           />
         )}
       </AnimatePresence>
@@ -258,7 +288,21 @@ export function ProfileClient({
 
           <div className="relative max-w-5xl mx-auto px-8 py-8 flex flex-col sm:flex-row items-start sm:items-center gap-7" style={{ zIndex: 1 }}>
             {/* Avatar */}
-            <div className="relative shrink-0">
+            <div className="relative shrink-0 group">
+              {/* Hidden file input — accepts any image at full original resolution */}
+              <input
+                ref={avatarInputRef}
+                type="file"
+                accept="image/*"
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                  const f = e.target.files?.[0]
+                  if (f) setAvatarCropSrc(URL.createObjectURL(f))
+                  e.target.value = ''
+                }}
+              />
+
+              {/* Avatar frame */}
               <div
                 style={{
                   width: 96, height: 96,
@@ -267,18 +311,56 @@ export function ProfileClient({
                   overflow: 'hidden',
                   backgroundColor: '#0a0908',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  position: 'relative',
                 }}
               >
-                <AvatarDisplay key={avatarKey} avatarUrl={profile.avatar_url} size={90} />
+                <AvatarDisplay key={avatarKey} avatarUrl={avatarUrl || profile.avatar_url} size={90} />
+
+                {/* Hover overlay */}
+                <button
+                  onClick={() => !avatarUploading && avatarInputRef.current?.click()}
+                  disabled={avatarUploading}
+                  className="absolute inset-0 flex flex-col items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                  style={{
+                    backgroundColor: 'rgba(0,0,0,0.62)',
+                    cursor: avatarUploading ? 'default' : 'pointer',
+                    border: 'none',
+                  }}
+                >
+                  {avatarUploading ? (
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{ repeat: Infinity, duration: 0.9, ease: 'linear' }}
+                      style={{ width: 18, height: 18, border: '2px solid rgba(255,255,255,0.2)', borderTopColor: '#c9a84c', borderRadius: '50%' }}
+                    />
+                  ) : (
+                    <>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" stroke="rgba(255,255,255,0.85)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <circle cx="12" cy="13" r="4" stroke="rgba(255,255,255,0.85)" strokeWidth="2"/>
+                      </svg>
+                      <span style={{ fontSize: '0.48rem', color: 'rgba(255,255,255,0.70)', fontFamily: 'Georgia, serif', fontStyle: 'italic', letterSpacing: '0.08em' }}>
+                        upload
+                      </span>
+                    </>
+                  )}
+                </button>
               </div>
-              <button
-                onClick={() => setShowAvatarPicker(true)}
-                className="absolute -bottom-2 -right-2 w-7 h-7 flex items-center justify-center text-xs"
-                style={{ backgroundColor: '#c9a84c', color: '#0a0908', borderRadius: 4, fontFamily: 'Georgia, serif' }}
-                title="Customise character"
+
+              {/* Class badge */}
+              <div
+                className="absolute -bottom-2 -right-2 px-1.5 py-0.5"
+                style={{
+                  backgroundColor: 'rgba(201,168,76,0.12)',
+                  border: '1px solid rgba(201,168,76,0.30)',
+                  borderRadius: 4,
+                  fontFamily: 'Georgia, serif', fontStyle: 'italic',
+                  fontSize: '0.5rem', color: 'rgba(201,168,76,0.65)',
+                  letterSpacing: '0.06em', whiteSpace: 'nowrap',
+                }}
               >
-                ✎
-              </button>
+                soon
+              </div>
             </div>
 
             {/* Identity */}

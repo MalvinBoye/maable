@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
   const code          = searchParams.get('code')
   const returnedState = searchParams.get('state')
   const error         = searchParams.get('error')
-  const base          = process.env.NEXT_PUBLIC_SITE_URL ?? ''
+  const base          = process.env.NEXT_PUBLIC_SITE_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? ''
 
   // Verify CSRF state cookie
   const storedState = request.cookies.get('spotify_oauth_state')?.value

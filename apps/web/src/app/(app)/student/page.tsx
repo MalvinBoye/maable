@@ -33,10 +33,10 @@ export default async function StudentPage() {
         integrationColor: '#e66000',
         integrationHint: 'Connect Canvas to auto-import your assignments and due dates.',
         quickLinks: [
-          { label: 'Study notes',    href: '/notes',    icon: '✦' },
-          { label: 'Flashcard revision', href: '/notes', icon: '◎' },
-          { label: 'Weekly schedule', href: '/schedule', icon: '◫' },
-          { label: 'Duolingo streak', href: '/habits',   icon: '⊕' },
+          { label: 'Notes',      href: '/notes',    icon: '✦', description: 'Lecture & study notes' },
+          { label: 'Flashcards', href: '/notes',    icon: '◎', description: 'Revise with spaced rep' },
+          { label: 'Schedule',   href: '/schedule', icon: '◫', description: 'Map out your deadlines' },
+          { label: 'Habits',     href: '/habits',   icon: '⊕', description: 'Study streaks & routines' },
         ],
         tips: [
           'Use urgent priority for anything due this week.',

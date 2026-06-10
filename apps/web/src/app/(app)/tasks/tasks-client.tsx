@@ -647,7 +647,7 @@ export function TasksClient({ tasks }: { tasks: Task[] }) {
       reminder_at: null,
       tags: [],
       xp_reward: XP_BY_PRIORITY[data.priority],
-      sort_order: Date.now(),
+      sort_order: Math.floor(Date.now() / 1000),
       completed_at: null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),

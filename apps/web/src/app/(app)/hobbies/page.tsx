@@ -33,9 +33,10 @@ export default async function HobbiesPage() {
         integrationColor: '#fc4c02',
         integrationHint: 'Connect Strava, Spotify, or Goodreads to track hobbies automatically.',
         quickLinks: [
-          { label: 'Hobby notes',     href: '/notes',   icon: '✦' },
-          { label: 'All integrations', href: '/connect', icon: '◈' },
-          { label: 'Habit tracker',   href: '/habits',  icon: '⊕' },
+          { label: 'Notes',        href: '/notes',   icon: '✦', description: 'Log projects & progress' },
+          { label: 'Integrations', href: '/connect', icon: '◈', description: 'Strava, Spotify & more' },
+          { label: 'Habits',       href: '/habits',  icon: '⊕', description: 'Track your streaks' },
+          { label: 'Moodboard',    href: '/moodboard', icon: '◉', description: 'Pin inspiration' },
         ],
         tips: [
           'Add projects with deadlines to stay accountable.',

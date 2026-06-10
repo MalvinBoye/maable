@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { Profile } from '@maable/core'
 import { SKINS, getSkin } from '@/lib/skins'
@@ -237,6 +237,143 @@ function SkinSwatch({
   )
 }
 
+// ─── Dashboard layout picker ──────────────────────────────────────────────────
+
+function DashboardLayoutPicker() {
+  const [active, setActive] = useState<'1' | '2' | '3'>('1')
+
+  useEffect(() => {
+    const stored = localStorage.getItem('maable-dash-layout') as '1' | '2' | '3' | null
+    if (stored) setActive(stored)
+  }, [])
+
+  const pick = (v: '1' | '2' | '3') => {
+    setActive(v)
+    localStorage.setItem('maable-dash-layout', v)
+    window.dispatchEvent(new Event('maable-dash-layout-change'))
+  }
+
+  const layouts: Array<{
+    id: '1' | '2' | '3'
+    name: string
+    desc: string
+    preview: React.ReactNode
+  }> = [
+    {
+      id: '1',
+      name: 'Classic',
+      desc: 'Character + stat cards. Physics playground below.',
+      preview: (
+        <div style={{ display: 'flex', gap: 6, height: 48 }}>
+          <div style={{ width: 28, background: 'rgba(26,25,22,0.07)', borderRadius: 4 }} />
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <div style={{ display: 'flex', gap: 3, flex: 1 }}>
+              {[0,1,2].map(i => <div key={i} style={{ flex: 1, background: 'rgba(26,25,22,0.08)', borderRadius: 3 }} />)}
+            </div>
+            <div style={{ display: 'flex', gap: 3, flex: 1 }}>
+              {[0,1,2].map(i => <div key={i} style={{ flex: 1, background: 'rgba(26,25,22,0.06)', borderRadius: 3 }} />)}
+            </div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: '2',
+      name: 'Mission Desk',
+      desc: 'Interactive task + habit view. Check off goals directly.',
+      preview: (
+        <div style={{ display: 'flex', gap: 6, height: 48 }}>
+          <div style={{ flex: 1.4, display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <div style={{ height: 6, width: '55%', background: 'rgba(26,25,22,0.10)', borderRadius: 3 }} />
+            {[0,1,2].map(i => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <div style={{ width: 7, height: 7, borderRadius: '50%', border: '1.5px solid rgba(26,25,22,0.25)' }} />
+                <div style={{ flex: 1, height: 3, background: 'rgba(26,25,22,0.07)', borderRadius: 3 }} />
+              </div>
+            ))}
+          </div>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+            <div style={{ flex: 1, width: '60%', background: 'rgba(26,25,22,0.07)', borderRadius: 4 }} />
+            <div style={{ display: 'flex', gap: 4 }}>
+              {[0,1,2].map(i => <div key={i} style={{ width: 10, height: 10, borderRadius: '50%', border: '1.5px solid rgba(26,25,22,0.18)' }} />)}
+            </div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: '3',
+      name: 'Dark RPG',
+      desc: 'Character sheet aesthetic. Quests, abilities, gold accents.',
+      preview: (
+        <div style={{ display: 'flex', gap: 6, height: 48, background: '#0a0908', borderRadius: 4, padding: '6px 8px' }}>
+          <div style={{ flex: 0.9, display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <div style={{ flex: 1, background: 'rgba(201,168,76,0.12)', borderRadius: 3 }} />
+            <div style={{ height: 2, background: 'rgba(201,168,76,0.30)', borderRadius: 2 }} />
+            <div style={{ height: 4, background: 'rgba(201,168,76,0.08)', borderRadius: 2, overflow: 'hidden' }}>
+              <div style={{ width: '60%', height: '100%', background: 'rgba(201,168,76,0.50)', borderRadius: 2 }} />
+            </div>
+          </div>
+          <div style={{ flex: 1.4, display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <div style={{ height: 3, background: 'rgba(201,168,76,0.22)', borderRadius: 2, width: '50%' }} />
+            {[0,1,2].map(i => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                <div style={{ width: 5, height: 5, border: '1px solid rgba(201,168,76,0.40)', borderRadius: 1 }} />
+                <div style={{ flex: 1, height: 2, background: 'rgba(255,255,255,0.08)', borderRadius: 1 }} />
+              </div>
+            ))}
+          </div>
+        </div>
+      ),
+    },
+  ]
+
+  return (
+    <div>
+      <p className="text-xs text-stone-400 mb-3 mt-10" style={{ fontFamily: 'Georgia, serif', fontStyle: 'italic' }}>
+        Dashboard layout
+      </p>
+      <div style={{ display: 'flex', gap: 14 }}>
+        {layouts.map(({ id, name, desc, preview }) => (
+          <motion.button
+            key={id}
+            onClick={() => pick(id)}
+            whileHover={{ y: -2 }}
+            whileTap={{ scale: 0.97 }}
+            style={{
+              width: 164, padding: '14px 16px 12px',
+              background: '#faf9f7',
+              border: active === id ? '2px solid #1a1916' : '1px solid rgba(26,25,22,0.12)',
+              borderRadius: 6,
+              cursor: 'pointer', textAlign: 'left', position: 'relative',
+              boxShadow: active === id ? '0 4px 16px rgba(0,0,0,0.10)' : '0 1px 4px rgba(0,0,0,0.04)',
+              transition: 'border 0.15s, box-shadow 0.15s',
+            }}
+          >
+            <div style={{ marginBottom: 10 }}>{preview}</div>
+            <p style={{ fontFamily: 'Georgia, serif', fontStyle: 'italic', fontSize: '0.78rem', color: '#1a1916', margin: '0 0 2px' }}>
+              {name}
+            </p>
+            <p style={{ fontFamily: 'Georgia, serif', fontSize: '0.62rem', color: 'rgba(26,25,22,0.40)', margin: 0, lineHeight: 1.4 }}>
+              {desc}
+            </p>
+            {active === id && (
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                style={{
+                  position: 'absolute', top: 8, right: 8,
+                  width: 7, height: 7, borderRadius: '50%', background: '#1a1916',
+                }}
+              />
+            )}
+          </motion.button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // ─── Appearance section ────────────────────────────────────────────────────────
 
 function AppearanceSection({ profile }: { profile: Profile }) {
@@ -307,6 +444,8 @@ function AppearanceSection({ profile }: { profile: Profile }) {
           ) : null
         )}
       </AnimatePresence>
+
+      <DashboardLayoutPicker />
     </motion.div>
   )
 }

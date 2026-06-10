@@ -457,7 +457,7 @@ export function HabitsClient({ habits: initialHabits, completions, today }: Habi
       current_streak: 0,
       longest_streak: 0,
       is_archived: false,
-      sort_order: Date.now(),
+      sort_order: Math.floor(Date.now() / 1000),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     }

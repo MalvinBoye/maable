@@ -21,13 +21,13 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           </span>
         </div>
 
-        {/* Avatar — drinks the remaining space */}
-        <div className="flex-1 min-h-0 flex items-end justify-center px-16 pb-0">
+        {/* Mascot */}
+        <div className="flex-1 min-h-0 flex items-center justify-center px-20">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/illustrations/avatar-user.png"
+            src="/illustrations/mascot.png"
             alt="Maable"
-            className="w-full h-full object-contain object-bottom"
+            style={{ width: '80%', maxWidth: 340, objectFit: 'contain' }}
             draggable={false}
           />
         </div>

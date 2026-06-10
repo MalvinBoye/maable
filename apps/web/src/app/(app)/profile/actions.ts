@@ -3,6 +3,17 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
+export async function updateAvatarUrl(avatarUrl: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase as any).from('profiles').update({ avatar_url: avatarUrl }).eq('id', user.id)
+  revalidatePath('/profile')
+  revalidatePath('/dashboard')
+  return { error: (error as { message?: string } | null)?.message ?? null }
+}
+
 export async function updateProfile(data: {
   display_name: string
   bio: string | null
@@ -50,7 +61,7 @@ export async function savePin(imageUrl: string, caption: string | null) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase as any)
     .from('profile_pins')
-    .insert({ user_id: user.id, image_url: imageUrl, caption: caption ?? null, sort_order: Date.now() })
+    .insert({ user_id: user.id, image_url: imageUrl, caption: caption ?? null, sort_order: Math.floor(Date.now() / 1000) })
 
   revalidatePath('/profile')
   return { error: (error as { message?: string } | null)?.message ?? null }

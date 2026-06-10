@@ -9,7 +9,7 @@ const SCOPES = [
 
 export async function GET() {
   const clientId    = process.env.SPOTIFY_CLIENT_ID
-  const base        = process.env.NEXT_PUBLIC_SITE_URL ?? ''
+  const base        = process.env.NEXT_PUBLIC_SITE_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? ''
   const redirectUri = `${base}/api/auth/spotify/callback`
 
   if (!clientId) {

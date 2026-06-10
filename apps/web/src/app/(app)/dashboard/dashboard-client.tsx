@@ -8,9 +8,13 @@ import { QuickNoteModal, QuickTimerModal } from '@/components/app/quick-actions'
 import { createTask } from '@/app/(app)/tasks/actions'
 import { useArchitect } from '@/lib/architect-context'
 import { useADHD } from '@/lib/adhd-context'
+import { useSimpleMode } from '@/lib/simple-mode-context'
+import { useTimer, TIMER_PRESETS } from '@/lib/timer-context'
 import { DragResizeCard, type CardBounds } from '@/components/app/drag-resize'
 import { NowPlayingCard } from '@/components/app/now-playing'
 import { LevelUpEffect } from '@/components/app/level-up-effect'
+import { DashboardType2Client } from './dashboard-type2-client'
+import { DashboardType3Client } from './dashboard-type3-client'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -34,16 +38,17 @@ interface DashboardClientProps {
 
 type LifeCategory = 'career' | 'student' | 'hobbies' | 'reading' | 'lazy'
 
-const CATEGORY_META: Record<LifeCategory, { label: string; tagline: string; href: string }> = {
-  career:  { label: 'Career',         tagline: 'Climb with intention',     href: '/career'  },
-  student: { label: 'Student',        tagline: 'Learn something today',    href: '/student' },
-  hobbies: { label: 'Hobbies',        tagline: 'Make time for joy',        href: '/hobbies' },
-  reading: { label: 'Reading Corner', tagline: 'Every book, a new world',  href: '/reading' },
-  lazy:    { label: 'Feeling Lazy',   tagline: 'Rest is productive too',   href: '/lazy'    },
+const CATEGORY_META: Record<LifeCategory, { label: string; tagline: string; href: string; blurb: string }> = {
+  career:  { label: 'Career',         tagline: 'Climb with intention',    href: '/career',  blurb: 'tasks · goals · career notes'       },
+  student: { label: 'Student',        tagline: 'Learn something today',   href: '/student', blurb: 'assignments · study · revision'      },
+  hobbies: { label: 'Hobbies',        tagline: 'Make time for joy',       href: '/hobbies', blurb: 'projects · creativity · side work'   },
+  reading: { label: 'Reading Corner', tagline: 'Every book, a new world', href: '/reading', blurb: 'books · reviews · reading log'       },
+  lazy:    { label: 'Feeling Lazy',   tagline: 'Rest is productive too',  href: '/lazy',    blurb: 'wind down · rest · recharge'         },
 }
 
+
 const CARD_SHADOW   = '0 1px 3px rgba(0,0,0,0.05), 0 0 0 1px rgba(26,25,22,0.07)'
-const CARD_SHADOW_H = '0 14px 44px rgba(0,0,0,0.12), 0 0 0 1px rgba(26,25,22,0.10)'
+const CARD_SHADOW_H = '0 20px 60px rgba(0,0,0,0.22), 0 6px 20px rgba(0,0,0,0.14), 0 0 0 1px rgba(26,25,22,0.12)'
 
 // ─── Animated counter ────────────────────────────────────────────────────────
 
@@ -166,72 +171,206 @@ function ThinBar({ progress, delay = 0 }: { progress: number; delay?: number }) 
   )
 }
 
-// ─── Category bento card ─────────────────────────────────────────────────────
+// ─── Life area card ───────────────────────────────────────────────────────────
 
-function CategoryBentoCard({
-  id, delay = 0, fontSize = 15,
+function LifeAreaCard({
+  id, isHovered, anyHovered, delay, onEnter, onLeave,
 }: {
-  id: LifeCategory; delay?: number; fontSize?: number
+  id: LifeCategory
+  isHovered: boolean
+  anyHovered: boolean
+  delay: number
+  onEnter: () => void
+  onLeave: () => void
 }) {
-  const [hovered, setHovered] = useState(false)
-  const { label, tagline, href } = CATEGORY_META[id]
+  const { label, tagline, href, blurb } = CATEGORY_META[id]
+  const cardRef = useRef<HTMLDivElement>(null)
+  const [mouse, setMouse] = useState({ x: 0, y: 0 })
+
+  const trackMouse = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!cardRef.current) return
+    const r = cardRef.current.getBoundingClientRect()
+    setMouse({
+      x: ((e.clientX - r.left) / r.width  - 0.5) * 2,
+      y: ((e.clientY - r.top)  / r.height - 0.5) * 2,
+    })
+  }, [])
+
+  const handleLeave = useCallback(() => {
+    setMouse({ x: 0, y: 0 })
+    onLeave()
+  }, [onLeave])
+
   return (
-    <Link href={href} className="block h-full">
+    <Link href={href} style={{ display: 'block', height: '100%', textDecoration: 'none' }}>
       <motion.div
+        ref={cardRef}
+        onMouseEnter={onEnter}
+        onMouseLeave={handleLeave}
+        onMouseMove={trackMouse}
         className="relative h-full flex flex-col overflow-hidden"
-        style={{ backgroundColor: 'var(--paper, #fff)', boxShadow: CARD_SHADOW }}
         initial={{ opacity: 0, y: 18 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay, duration: 0.38, ease: 'easeOut' }}
-        whileHover={{ y: -5, boxShadow: CARD_SHADOW_H }}
-        onHoverStart={() => setHovered(true)}
-        onHoverEnd={() => setHovered(false)}
+        animate={{
+          opacity: anyHovered && !isHovered ? 0.55 : 1,
+          y: isHovered ? -8 : 0,
+          boxShadow: isHovered ? CARD_SHADOW_H : CARD_SHADOW,
+        }}
+        transition={{
+          opacity: { duration: 0.2 },
+          y: { type: 'spring', stiffness: 340, damping: 26 },
+          boxShadow: { duration: 0.28 },
+          default: { delay, duration: 0.4, ease: 'easeOut' },
+        }}
+        style={{ backgroundColor: 'var(--paper, #fff)', borderRadius: 12 }}
       >
-        {/* Illustration */}
-        <div className="flex-1 min-h-0 flex items-center justify-center px-6 pt-6 pb-2">
+        {/* Illustration with mouse parallax */}
+        <div
+          className="flex-1 min-h-0 flex items-center justify-center overflow-hidden"
+          style={{ padding: '22px 18px 6px', position: 'relative' }}
+        >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={`/illustrations/category-${id}.png`}
             alt={label}
-            className="w-full h-full object-contain"
-            style={{
-              transition: 'transform 0.32s ease-out',
-              transform: hovered ? 'scale(1.07)' : 'scale(1)',
-            }}
             draggable={false}
+            style={{
+              width: '82%', height: '82%', objectFit: 'contain',
+              transform: isHovered
+                ? `translateX(${mouse.x * -8}px) translateY(${mouse.y * -8}px) scale(1.08)`
+                : 'scale(1)',
+              filter: isHovered
+                ? 'drop-shadow(0 8px 18px rgba(0,0,0,0.12))'
+                : 'drop-shadow(0 2px 6px rgba(0,0,0,0.06))',
+              transition: 'transform 0.45s cubic-bezier(0.34,1.56,0.64,1), filter 0.3s ease',
+              userSelect: 'none',
+              pointerEvents: 'none',
+            }}
           />
         </div>
 
-        {/* Label */}
-        <div className="shrink-0 px-5 pb-5 pt-1">
-          <div className="h-px mb-3" style={{ backgroundColor: 'rgba(26,25,22,0.07)' }} />
-          <div className="flex items-end justify-between gap-2">
-            <div className="min-w-0">
-              <p
-                className="text-stone-800 leading-tight truncate"
-                style={{ fontFamily: 'Georgia, serif', fontStyle: 'italic', fontSize }}
-              >
+        {/* Bottom info strip */}
+        <motion.div
+          style={{ flexShrink: 0, padding: '0 18px', position: 'relative' }}
+          animate={{ paddingBottom: isHovered ? 18 : 14 }}
+          transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+        >
+          <div style={{
+            height: 1,
+            background: 'rgba(26,25,22,0.07)',
+            marginBottom: 10,
+          }} />
+
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+            <div style={{ minWidth: 0 }}>
+              <p style={{
+                fontFamily: 'Georgia, serif', fontStyle: 'italic',
+                fontSize: isHovered ? '1.05rem' : '0.95rem',
+                color: '#1a1916', margin: 0, lineHeight: 1.2,
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                transition: 'font-size 0.2s ease',
+              }}>
                 {label}
               </p>
-              <p
-                className="text-xs text-stone-400 mt-0.5 truncate"
-                style={{ fontFamily: 'Georgia, serif', fontStyle: 'italic' }}
-              >
+
+              <p style={{
+                fontFamily: 'Georgia, serif', fontStyle: 'italic',
+                fontSize: '0.68rem', color: 'rgba(26,25,22,0.42)',
+                margin: '3px 0 0',
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              }}>
                 {tagline}
               </p>
+
+              <AnimatePresence>
+                {isHovered && (
+                  <motion.p
+                    key="blurb"
+                    initial={{ opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 2 }}
+                    transition={{ delay: 0.06, duration: 0.18 }}
+                    style={{
+                      fontFamily: 'Georgia, serif', fontStyle: 'italic',
+                      fontSize: '0.60rem', color: 'rgba(26,25,22,0.28)',
+                      margin: '5px 0 0', letterSpacing: '0.03em',
+                    }}
+                  >
+                    {blurb}
+                  </motion.p>
+                )}
+              </AnimatePresence>
             </div>
+
             <motion.span
-              className="shrink-0 text-stone-400 text-sm"
-              style={{ fontFamily: 'Georgia, serif' }}
-              animate={{ x: hovered ? 0 : -4, opacity: hovered ? 1 : 0 }}
-              transition={{ duration: 0.14 }}
+              animate={{ opacity: isHovered ? 1 : 0, x: isHovered ? 0 : -5 }}
+              transition={{ duration: 0.16, delay: isHovered ? 0.09 : 0 }}
+              style={{
+                fontFamily: 'Georgia, serif', fontSize: '0.9rem',
+                color: 'rgba(26,25,22,0.48)', flexShrink: 0, paddingTop: 2,
+              }}
             >
               →
             </motion.span>
           </div>
-        </div>
+        </motion.div>
+
       </motion.div>
     </Link>
+  )
+}
+
+// ─── Life areas section ───────────────────────────────────────────────────────
+
+function LifeAreasSection() {
+  const [hovered, setHovered] = useState<LifeCategory | null>(null)
+  const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null)
+  const sectionRef = useRef<HTMLDivElement>(null)
+
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!sectionRef.current) return
+    const r = sectionRef.current.getBoundingClientRect()
+    setCursor({ x: e.clientX - r.left, y: e.clientY - r.top })
+  }, [])
+
+  const handleMouseLeave = useCallback(() => {
+    setCursor(null)
+    setHovered(null)
+  }, [])
+
+  return (
+    <div
+      ref={sectionRef}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+      style={{ position: 'relative' }}
+    >
+      {/* Section-wide cursor spotlight */}
+      <div
+        style={{
+          position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0,
+          background: cursor
+            ? `radial-gradient(circle 260px at ${cursor.x}px ${cursor.y}px, rgba(201,168,76,0.055) 0%, transparent 70%)`
+            : 'none',
+          transition: 'background 0.08s',
+        }}
+      />
+
+      {/* Bento grid */}
+      <div
+        className="relative grid gap-4"
+        style={{ gridTemplateColumns: '1fr 1fr 1fr', gridTemplateRows: '235px 235px', zIndex: 1 }}
+      >
+        {/* Row 1: Career · Student · Hobbies */}
+        <LifeAreaCard id="career"  isHovered={hovered === 'career'}  anyHovered={hovered !== null} delay={0}    onEnter={() => setHovered('career')}  onLeave={() => setHovered(null)} />
+        <LifeAreaCard id="student" isHovered={hovered === 'student'} anyHovered={hovered !== null} delay={0.07} onEnter={() => setHovered('student')} onLeave={() => setHovered(null)} />
+        <LifeAreaCard id="hobbies" isHovered={hovered === 'hobbies'} anyHovered={hovered !== null} delay={0.13} onEnter={() => setHovered('hobbies')} onLeave={() => setHovered(null)} />
+        {/* Row 2: Reading (spans 2 cols) · Lazy */}
+        <div style={{ gridColumn: '1 / 3' }}>
+          <LifeAreaCard id="reading" isHovered={hovered === 'reading'} anyHovered={hovered !== null} delay={0.19} onEnter={() => setHovered('reading')} onLeave={() => setHovered(null)} />
+        </div>
+        <LifeAreaCard id="lazy"    isHovered={hovered === 'lazy'}    anyHovered={hovered !== null} delay={0.25} onEnter={() => setHovered('lazy')}    onLeave={() => setHovered(null)} />
+      </div>
+    </div>
   )
 }
 
@@ -901,6 +1040,370 @@ function ArchitectCanvas({
   )
 }
 
+// ─── Dashboard character ──────────────────────────────────────────────────────
+
+function DashboardCharacter({ displayName, avatarUrl, adhdMode }: {
+  displayName: string
+  avatarUrl: string | null
+  adhdMode: boolean
+}) {
+  const isPhoto = avatarUrl && (avatarUrl.startsWith('http') || avatarUrl.startsWith('blob'))
+  return (
+    <div
+      className="flex flex-col"
+      style={{ width: '44%', height: '100%', paddingLeft: '3.5rem', paddingTop: '1.75rem', paddingBottom: '1.75rem' }}
+    >
+      <p className="text-sm text-stone-400 shrink-0 mb-3" style={{ fontFamily: 'Georgia, serif', fontStyle: 'italic' }}>
+        {displayName}
+      </p>
+      <motion.div
+        className="flex-1 min-h-0 flex items-end justify-center"
+        animate={adhdMode ? { rotate: [0, -1, 1, 0] } : {}}
+        transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={isPhoto ? avatarUrl! : '/illustrations/avatar-user.png'}
+          alt={displayName}
+          style={{
+            maxWidth: '100%', maxHeight: '100%',
+            objectFit: isPhoto ? 'cover' : 'contain',
+            objectPosition: isPhoto ? 'center' : 'bottom',
+            borderRadius: isPhoto ? 12 : 0,
+          }}
+          draggable={false}
+        />
+      </motion.div>
+      <p className="mt-3 text-xl text-stone-800 shrink-0" style={{ fontFamily: 'Georgia, serif', fontStyle: 'italic' }}>
+        ....
+      </p>
+    </div>
+  )
+}
+
+// ─── Layout switcher ─────────────────────────────────────────────────────────
+
+const LAYOUT_LABELS: Record<string, string> = { '1': 'classic', '2': 'desk', '3': 'rpg' }
+
+function LayoutSwitcher({
+  layout,
+  onChange,
+}: {
+  layout: '1' | '2' | '3'
+  onChange: (v: '1' | '2' | '3') => void
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const idx = Number(layout) - 1  // 0, 1, or 2
+
+  return (
+    <motion.div
+      onMouseEnter={() => setExpanded(true)}
+      onMouseLeave={() => setExpanded(false)}
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0, width: expanded ? 102 : 36 }}
+      transition={{ width: { type: 'spring', stiffness: 420, damping: 32 }, opacity: { delay: 0.5, duration: 0.3 }, y: { delay: 0.5, duration: 0.3 } }}
+      style={{
+        position: 'fixed',
+        bottom: 'calc(4.5rem + 12px)',
+        right: 18,
+        zIndex: 60,
+        height: 30,
+        overflow: 'hidden',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'rgba(255,255,255,0.88)',
+        backdropFilter: 'blur(14px)',
+        WebkitBackdropFilter: 'blur(14px)',
+        border: '1px solid rgba(26,25,22,0.10)',
+        borderRadius: 15,
+        boxShadow: '0 4px 20px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.06)',
+      }}
+    >
+      {/* Compact: three small dots indicating current position */}
+      <motion.div
+        animate={{ opacity: expanded ? 0 : 1 }}
+        transition={{ duration: 0.12 }}
+        style={{
+          position: 'absolute',
+          display: 'flex', alignItems: 'center', gap: 5,
+          pointerEvents: expanded ? 'none' : 'auto',
+        }}
+      >
+        {[0, 1, 2].map(i => (
+          <div
+            key={i}
+            style={{
+              width: i === idx ? 7 : 5,
+              height: i === idx ? 7 : 5,
+              borderRadius: '50%',
+              background: i === idx ? '#1a1916' : 'rgba(26,25,22,0.20)',
+              transition: 'all 0.2s',
+              flexShrink: 0,
+            }}
+          />
+        ))}
+      </motion.div>
+
+      {/* Expanded: numbered buttons */}
+      <motion.div
+        animate={{ opacity: expanded ? 1 : 0 }}
+        transition={{ duration: 0.14, delay: expanded ? 0.06 : 0 }}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          padding: '0 3px',
+          gap: 1,
+          pointerEvents: expanded ? 'auto' : 'none',
+          flexShrink: 0,
+        }}
+      >
+        {(['1', '2', '3'] as const).map((v) => (
+          <motion.button
+            key={v}
+            onClick={() => onChange(v)}
+            whileTap={{ scale: 0.88 }}
+            title={LAYOUT_LABELS[v]}
+            style={{
+              position: 'relative',
+              width: 30,
+              height: 24,
+              borderRadius: 12,
+              border: 'none',
+              background: 'transparent',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              overflow: 'hidden',
+            }}
+          >
+            {layout === v && (
+              <motion.div
+                layoutId="layout-active"
+                style={{ position: 'absolute', inset: 0, borderRadius: 12, background: '#1a1916' }}
+                transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+              />
+            )}
+            <span style={{
+              position: 'relative',
+              fontFamily: 'Georgia, serif', fontStyle: 'italic',
+              fontSize: '0.68rem',
+              color: layout === v ? '#f5f0e8' : 'rgba(26,25,22,0.42)',
+              transition: 'color 0.15s',
+              lineHeight: 1, userSelect: 'none',
+            }}>
+              {v}
+            </span>
+          </motion.button>
+        ))}
+      </motion.div>
+    </motion.div>
+  )
+}
+
+// ─── Simple / Focus mode dashboard ───────────────────────────────────────────
+
+const FOCUS_ITEMS = [
+  { label: 'Tasks',    href: '/tasks',    icon: '◎', description: 'What needs doing today' },
+  { label: 'Habits',   href: '/habits',   icon: '◈', description: 'Keep your streaks alive' },
+  { label: 'Notes',    href: '/notes',    icon: '✦', description: 'Write and capture ideas'  },
+  { label: 'Schedule', href: '/schedule', icon: '⊟', description: "What's on the plan"       },
+]
+
+function TimerPanel() {
+  const { hasActiveTimer, isRunning, timeLeft, timerLabel, startTimer, pauseTimer, resumeTimer, stopTimer } = useTimer()
+
+  const fmt = (s: number) =>
+    `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.50, duration: 0.38, ease: 'easeOut' }}
+      style={{
+        backgroundColor: '#fff',
+        borderRadius: 14,
+        padding: '22px 28px',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.06), 0 0 0 1px rgba(26,25,22,0.07)',
+        width: '100%',
+        maxWidth: 692,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
+        <div>
+          <p style={{ fontFamily: 'Georgia, serif', fontStyle: 'italic', fontSize: '0.90rem', color: '#1a1916', marginBottom: 3 }}>
+            {hasActiveTimer ? timerLabel : 'Focus timer'}
+          </p>
+          <p style={{ fontFamily: 'Georgia, serif', fontStyle: 'italic', fontSize: '0.64rem', color: 'rgba(26,25,22,0.36)' }}>
+            {hasActiveTimer ? 'timer running in the sidebar →' : 'Pick a preset to start — stays visible while you work'}
+          </p>
+        </div>
+
+        <AnimatePresence mode="wait">
+          {hasActiveTimer ? (
+            <motion.div
+              key="controls"
+              initial={{ opacity: 0, x: 10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 10 }}
+              style={{ display: 'flex', alignItems: 'center', gap: 10 }}
+            >
+              <p style={{ fontFamily: 'Georgia, serif', fontStyle: 'italic', fontSize: '1.4rem', color: '#1a1916', minWidth: 64, textAlign: 'right' }}>
+                {fmt(timeLeft)}
+              </p>
+              {isRunning ? (
+                <button onClick={pauseTimer} style={btnStyle}>pause</button>
+              ) : (
+                <button onClick={resumeTimer} style={{ ...btnStyle, color: '#c9a84c', borderColor: 'rgba(201,168,76,0.30)' }}>resume</button>
+              )}
+              <button onClick={stopTimer} style={{ ...btnStyle, color: 'rgba(26,25,22,0.35)', borderColor: 'rgba(26,25,22,0.12)' }}>stop</button>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="presets"
+              initial={{ opacity: 0, x: 10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 10 }}
+              style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}
+            >
+              {TIMER_PRESETS.map(p => (
+                <motion.button
+                  key={p.label}
+                  onClick={() => startTimer(p.seconds, p.tag)}
+                  whileHover={{ y: -2 }}
+                  whileTap={{ scale: 0.95 }}
+                  style={{
+                    fontFamily: 'Georgia, serif', fontStyle: 'italic',
+                    fontSize: '0.78rem', color: '#1a1916',
+                    padding: '7px 14px', borderRadius: 8,
+                    border: '1px solid rgba(26,25,22,0.12)',
+                    backgroundColor: 'rgba(26,25,22,0.03)',
+                    cursor: 'pointer', transition: 'border-color 0.12s, background-color 0.12s',
+                  }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(201,168,76,0.40)'; (e.currentTarget as HTMLElement).style.backgroundColor = 'rgba(201,168,76,0.05)' }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(26,25,22,0.12)'; (e.currentTarget as HTMLElement).style.backgroundColor = 'rgba(26,25,22,0.03)' }}
+                >
+                  {p.label}
+                  <span style={{ marginLeft: 5, fontSize: '0.58rem', color: 'rgba(26,25,22,0.35)' }}>{p.tag}</span>
+                </motion.button>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </motion.div>
+  )
+}
+
+const btnStyle: React.CSSProperties = {
+  fontFamily: 'Georgia, serif', fontStyle: 'italic',
+  fontSize: '0.72rem', color: 'rgba(26,25,22,0.50)',
+  padding: '5px 12px', borderRadius: 6,
+  border: '1px solid rgba(26,25,22,0.14)',
+  backgroundColor: 'transparent',
+  cursor: 'pointer',
+}
+
+function SimpleDashboard({ profile }: { profile: DashboardClientProps['profile'] }) {
+  const { toggleSimpleMode } = useSimpleMode()
+  const displayName = profile?.display_name ?? 'there'
+  const hour = new Date().getHours()
+  const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening'
+  const date = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+
+  return (
+    <motion.div
+      key="simple"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.3 }}
+      style={{
+        minHeight: 'calc(100dvh - 4.5rem)',
+        display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+        padding: '40px 24px',
+        backgroundColor: '#faf9f7',
+      }}
+    >
+      {/* Greeting */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1, duration: 0.5, ease: 'easeOut' }}
+        style={{ textAlign: 'center', marginBottom: 48 }}
+      >
+        <h1 style={{
+          fontFamily: 'Georgia, serif', fontStyle: 'italic',
+          fontSize: '2.6rem', color: '#1a1916', lineHeight: 1.1, marginBottom: 10,
+        }}>
+          {greeting}, {displayName}.
+        </h1>
+        <p style={{ fontFamily: 'Georgia, serif', fontStyle: 'italic', fontSize: '0.88rem', color: 'rgba(26,25,22,0.38)' }}>
+          {date}
+        </p>
+      </motion.div>
+
+      {/* Nav cards */}
+      <div style={{ display: 'flex', gap: 14, marginBottom: 16, flexWrap: 'wrap', justifyContent: 'center' }}>
+        {FOCUS_ITEMS.map((item, i) => (
+          <Link key={item.href} href={item.href} style={{ textDecoration: 'none' }}>
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.18 + i * 0.07, duration: 0.4, ease: 'easeOut' }}
+              whileHover={{ y: -7, boxShadow: '0 16px 44px rgba(0,0,0,0.13), 0 0 0 1px rgba(26,25,22,0.08)' }}
+              whileTap={{ scale: 0.97 }}
+              style={{
+                width: 158,
+                backgroundColor: '#fff',
+                borderRadius: 14,
+                padding: '28px 18px 22px',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.06), 0 0 0 1px rgba(26,25,22,0.07)',
+                textAlign: 'center',
+                cursor: 'pointer',
+              }}
+            >
+              <p style={{ fontFamily: 'Georgia, serif', fontSize: '1.7rem', color: 'rgba(26,25,22,0.28)', marginBottom: 14 }}>
+                {item.icon}
+              </p>
+              <p style={{ fontFamily: 'Georgia, serif', fontStyle: 'italic', fontSize: '1.00rem', color: '#1a1916', marginBottom: 5 }}>
+                {item.label}
+              </p>
+              <p style={{ fontFamily: 'Georgia, serif', fontStyle: 'italic', fontSize: '0.63rem', color: 'rgba(26,25,22,0.36)', lineHeight: 1.5 }}>
+                {item.description}
+              </p>
+            </motion.div>
+          </Link>
+        ))}
+      </div>
+
+      {/* Timer panel */}
+      <TimerPanel />
+
+      {/* Exit */}
+      <motion.button
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.60, duration: 0.3 }}
+        onClick={toggleSimpleMode}
+        style={{
+          marginTop: 32,
+          fontFamily: 'Georgia, serif', fontStyle: 'italic',
+          fontSize: '0.75rem', color: 'rgba(26,25,22,0.28)',
+          cursor: 'pointer', transition: 'color 0.15s',
+        }}
+        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'rgba(26,25,22,0.60)' }}
+        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'rgba(26,25,22,0.28)' }}
+      >
+        ← return to full view
+      </motion.button>
+    </motion.div>
+  )
+}
+
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 
 export function DashboardClient({ profile, stats }: DashboardClientProps) {
@@ -908,6 +1411,51 @@ export function DashboardClient({ profile, stats }: DashboardClientProps) {
   const [modal, setModal] = useState<'note' | 'timer' | null>(null)
   const { sectionOrder, hiddenSections, architectMode } = useArchitect()
   const { adhdMode } = useADHD()
+  const { simpleMode } = useSimpleMode()
+  const [dashLayout, setDashLayout] = useState<'1' | '2' | '3'>('1')
+  const [avatarUrl, setAvatarUrl] = useState(profile?.avatar_url ?? null)
+
+  useEffect(() => {
+    const stored = localStorage.getItem('maable-dash-layout') as '1' | '2' | '3' | null
+    if (stored) setDashLayout(stored)
+
+    const onLayout = () => {
+      const updated = localStorage.getItem('maable-dash-layout') as '1' | '2' | null
+      if (updated) setDashLayout(updated)
+    }
+    const onAvatar = (e: Event) => {
+      const detail = (e as CustomEvent).detail
+      if (!detail) setAvatarUrl(profile?.avatar_url ?? null)
+      else setAvatarUrl(profile?.avatar_url ?? null)
+    }
+    window.addEventListener('maable-dash-layout-change', onLayout)
+    window.addEventListener('maable-avatar-update', onAvatar)
+    return () => {
+      window.removeEventListener('maable-dash-layout-change', onLayout)
+      window.removeEventListener('maable-avatar-update', onAvatar)
+    }
+  }, [profile?.avatar_url])
+
+  const switchLayout = useCallback((v: '1' | '2' | '3') => {
+    setDashLayout(v)
+    localStorage.setItem('maable-dash-layout', v)
+    window.dispatchEvent(new Event('maable-dash-layout-change'))
+  }, [])
+
+  if (simpleMode) return <SimpleDashboard profile={profile} />
+
+  if (dashLayout === '2') return (
+    <>
+      <DashboardType2Client profile={profile} stats={stats} />
+      <LayoutSwitcher layout={dashLayout} onChange={switchLayout} />
+    </>
+  )
+  if (dashLayout === '3') return (
+    <>
+      <DashboardType3Client profile={profile} stats={stats} />
+      <LayoutSwitcher layout={dashLayout} onChange={switchLayout} />
+    </>
+  )
 
   const archBorder = architectMode ? '2px dashed rgba(99,102,241,0.30)' : 'none'
 
@@ -927,30 +1475,7 @@ export function DashboardClient({ profile, stats }: DashboardClientProps) {
         </div>
       )}
       {/* Left — avatar */}
-      <div
-        className="flex flex-col"
-        style={{ width: '44%', height: '100%', paddingLeft: '3.5rem', paddingTop: '1.75rem', paddingBottom: '1.75rem' }}
-      >
-        <p className="text-sm text-stone-400 shrink-0 mb-3" style={{ fontFamily: 'Georgia, serif', fontStyle: 'italic' }}>
-          {displayName}
-        </p>
-        <motion.div
-          className="flex-1 min-h-0"
-          animate={adhdMode ? { rotate: [0, -1, 1, 0] } : {}}
-          transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/illustrations/avatar-user.png"
-            alt={displayName}
-            className="w-full h-full object-contain object-bottom"
-            draggable={false}
-          />
-        </motion.div>
-        <p className="mt-3 text-xl text-stone-800 shrink-0" style={{ fontFamily: 'Georgia, serif', fontStyle: 'italic' }}>
-          ....
-        </p>
-      </div>
+      <DashboardCharacter displayName={displayName} avatarUrl={avatarUrl} adhdMode={adhdMode} />
 
       {/* Right — stat cards */}
       <div className="flex-1 flex flex-col justify-center pr-10 pl-5 gap-4">
@@ -964,7 +1489,7 @@ export function DashboardClient({ profile, stats }: DashboardClientProps) {
           <TotalXpCard  totalXp={stats.totalXp} />
           <NextLevelCard levelXp={stats.levelXp} />
         </div>
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-5 gap-4">
           <NowPlayingCard />
           <QuickAddTaskCard />
           <QuickActionCard
@@ -977,6 +1502,24 @@ export function DashboardClient({ profile, stats }: DashboardClientProps) {
             label="Quick note"
             onClick={() => setModal('note')}
           />
+          <Link href="/moodboard" style={{ textDecoration: 'none' }}>
+            <motion.div
+              className="rounded-2xl bg-white px-6 py-4 flex items-center gap-3 w-full h-full"
+              style={{ boxShadow: CARD_SHADOW, color: '#78716c' }}
+              whileHover={{ boxShadow: CARD_SHADOW_H, y: -4, color: '#1a1916' }}
+              transition={{ type: 'spring', stiffness: 320, damping: 22 }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
+                <rect x="2" y="2" width="9" height="11" rx="1.5" stroke="currentColor" strokeWidth="1.5"/>
+                <rect x="13" y="2" width="9" height="6" rx="1.5" stroke="currentColor" strokeWidth="1.5"/>
+                <rect x="13" y="10" width="9" height="12" rx="1.5" stroke="currentColor" strokeWidth="1.5"/>
+                <rect x="2" y="15" width="9" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.5"/>
+              </svg>
+              <span className="text-sm" style={{ fontFamily: 'Georgia, serif', fontStyle: 'italic' }}>
+                Mood board
+              </span>
+            </motion.div>
+          </Link>
         </div>
       </div>
     </section>
@@ -1008,17 +1551,9 @@ export function DashboardClient({ profile, stats }: DashboardClientProps) {
             Where are you headed today?
           </h2>
         </div>
-        <p className="text-xs text-stone-300" style={{ fontFamily: 'Georgia, serif', fontStyle: 'italic' }}>5 life areas</p>
+        <p className="text-xs text-stone-300" style={{ fontFamily: 'Georgia, serif', fontStyle: 'italic' }}>hover to explore</p>
       </div>
-      <div className="grid gap-4" style={{ gridTemplateColumns: '1fr 1fr 1fr', gridTemplateRows: '220px 220px' }}>
-        <div style={{ gridColumn: '1', gridRow: '1 / 3', display: 'flex', flexDirection: 'column' }}>
-          <CategoryBentoCard id="career" delay={0} fontSize={18} />
-        </div>
-        <CategoryBentoCard id="student" delay={0.07} />
-        <CategoryBentoCard id="hobbies" delay={0.13} />
-        <CategoryBentoCard id="reading" delay={0.19} />
-        <CategoryBentoCard id="lazy" delay={0.25} />
-      </div>
+      <LifeAreasSection />
     </section>
   )
 
@@ -1117,6 +1652,7 @@ export function DashboardClient({ profile, stats }: DashboardClientProps) {
       </AnimatePresence>
 
       <LevelUpEffect level={stats.level} />
+      <LayoutSwitcher layout={dashLayout} onChange={switchLayout} />
     </div>
   )
 }
