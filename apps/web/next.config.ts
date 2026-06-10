@@ -3,9 +3,11 @@ import path from 'path'
 
 const isProd = process.env.NODE_ENV === 'production'
 
-// Production CSP is strict. Dev keeps unsafe-eval for Next.js hot reload.
+// 'unsafe-inline' is required in both envs — Next.js 15 injects inline scripts
+// for hydration/chunk loading whose hashes change every build.
+// Dev also needs 'unsafe-eval' for hot reload.
 const scriptSrc = isProd
-  ? "script-src 'self' https://js-cdn.music.apple.com"
+  ? "script-src 'self' 'unsafe-inline' https://js-cdn.music.apple.com"
   : "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://js-cdn.music.apple.com"
 
 const nextConfig: NextConfig = {
