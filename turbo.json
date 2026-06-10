@@ -11,7 +11,9 @@
     "SPOTIFY_CLIENT_SECRET",
     "APPLE_MUSIC_TEAM_ID",
     "APPLE_MUSIC_KEY_ID",
-    "APPLE_MUSIC_PRIVATE_KEY"
+    "APPLE_MUSIC_PRIVATE_KEY",
+    "APP_URL",
+    "ANTHROPIC_API_KEY"
   ],
   "tasks": {
     "build": {
