@@ -49,7 +49,7 @@ export function SimpleModeProvider({ children }: { children: React.ReactNode }) 
   }, [simpleMode, phase])
 
   return (
-    <SimpleModeContext.Provider value={{ simpleMode, toggleSimpleMode }}>
+    <SimpleModeContext value={{ simpleMode, toggleSimpleMode }}>
       {children}
 
       {/* ── Transition curtain ───────────────────────────────────────────── */}
@@ -86,6 +86,6 @@ export function SimpleModeProvider({ children }: { children: React.ReactNode }) 
           </motion.div>
         )}
       </AnimatePresence>
-    </SimpleModeContext.Provider>
+    </SimpleModeContext>
   )
 }

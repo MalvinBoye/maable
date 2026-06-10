@@ -220,11 +220,11 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   return (
-    <Ctx.Provider value={{ timeLeft, initialTime, isRunning, timerLabel, hasActiveTimer, startTimer, pauseTimer, resumeTimer, stopTimer }}>
+    <Ctx value={{ timeLeft, initialTime, isRunning, timerLabel, hasActiveTimer, startTimer, pauseTimer, resumeTimer, stopTimer }}>
       {children}
       <AnimatePresence>
         {hasActiveTimer && <FloatingTimer key="floating-timer" />}
       </AnimatePresence>
-    </Ctx.Provider>
+    </Ctx>
   )
 }

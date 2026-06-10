@@ -42,9 +42,9 @@ export function ADHDProvider({ children }: { children: React.ReactNode }) {
   const ultraMode = adhdLevel === 'ultra'
 
   return (
-    <ADHDContext.Provider value={{ adhdMode, ultraMode, adhdLevel, toggleADHD }}>
+    <ADHDContext value={{ adhdMode, ultraMode, adhdLevel, toggleADHD }}>
       {children}
-    </ADHDContext.Provider>
+    </ADHDContext>
   )
 }
 

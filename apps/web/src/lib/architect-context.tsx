@@ -99,14 +99,14 @@ export function ArchitectProvider({ children }: { children: React.ReactNode }) {
   }, [markTutorialDone])
 
   return (
-    <ArchitectContext.Provider value={{
+    <ArchitectContext value={{
       architectMode, toggleArchitect,
       sectionOrder, hiddenSections,
       moveSection, toggleSection,
       tutorialStep, startTutorial, nextTutorialStep, skipTutorial,
     }}>
       {children}
-    </ArchitectContext.Provider>
+    </ArchitectContext>
   )
 }
 
