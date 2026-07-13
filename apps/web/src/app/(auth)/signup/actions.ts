@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { isValidEmail, isStrongPassword, isValidUsername, sanitizeText } from '@maable/core'
+import { getPostHogClient } from '@/lib/posthog'
 
 export async function signup(formData: FormData) {
   const email = (formData.get('email') as string | null)?.trim()
@@ -21,7 +22,7 @@ export async function signup(formData: FormData) {
 
   const supabase = await createClient()
 
-  const { error } = await supabase.auth.signUp({
+  const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
@@ -35,6 +36,20 @@ export async function signup(formData: FormData) {
       redirect('/signup?error=email_taken')
     }
     redirect('/signup?error=unknown')
+  }
+
+  if (data.user) {
+    const posthog = getPostHogClient()
+    posthog.identify({
+      distinctId: data.user.id,
+      properties: { $set: { username } },
+    })
+    posthog.capture({
+      distinctId: data.user.id,
+      event: 'user_signed_up',
+      properties: { username },
+    })
+    await posthog.flush()
   }
 
   revalidatePath('/', 'layout')
