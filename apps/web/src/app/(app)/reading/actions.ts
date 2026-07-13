@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { getPostHogClient } from '@/lib/posthog'
 
 export type BookStatus = 'reading' | 'want' | 'finished'
 
@@ -23,23 +24,35 @@ function encodeBook(data: BookData) {
 
 export async function createBook(data: BookData) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated', id: null }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: note, error } = await (supabase as any)
     .from('notes')
     .insert({
-      user_id:      user.id,
-      title:        data.title,
-      content:      encodeBook(data),
+      user_id: user.id,
+      title: data.title,
+      content: encodeBook(data),
       content_text: data.author,
-      tags:         ['__book__'],
-      is_pinned:    false,
-      is_archived:  false,
+      tags: ['__book__'],
+      is_pinned: false,
+      is_archived: false,
     })
     .select('id')
     .single()
+
+  if (!error) {
+    const posthog = getPostHogClient()
+    posthog.capture({
+      distinctId: user.id,
+      event: 'book_added',
+      properties: { status: data.status, has_total_pages: data.total_pages !== null },
+    })
+    await posthog.flush()
+  }
 
   revalidatePath('/reading')
   return {
@@ -50,7 +63,9 @@ export async function createBook(data: BookData) {
 
 export async function updateBook(id: string, data: Partial<BookData>) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -62,9 +77,13 @@ export async function updateBook(id: string, data: Partial<BookData>) {
 
   const current = (() => {
     try {
-      const doc = (existing as { content: { content: Array<{ content: Array<{ text: string }> }> } }).content
+      const doc = (
+        existing as { content: { content: Array<{ content: Array<{ text: string }> }> } }
+      ).content
       return JSON.parse(doc.content[0]?.content[0]?.text ?? '{}') as BookData
-    } catch { return {} as BookData }
+    } catch {
+      return {} as BookData
+    }
   })()
 
   const merged: BookData = { ...current, ...data }
@@ -73,8 +92,8 @@ export async function updateBook(id: string, data: Partial<BookData>) {
   const { error } = await (supabase as any)
     .from('notes')
     .update({
-      title:        merged.title ?? current.title,
-      content:      encodeBook(merged),
+      title: merged.title ?? current.title,
+      content: encodeBook(merged),
       content_text: merged.author ?? current.author,
     })
     .eq('id', id)
@@ -86,7 +105,9 @@ export async function updateBook(id: string, data: Partial<BookData>) {
 
 export async function deleteBook(id: string) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

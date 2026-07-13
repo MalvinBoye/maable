@@ -3,12 +3,13 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { createCipheriv, randomBytes } from 'crypto'
+import { getPostHogClient } from '@/lib/posthog'
 
 function encryptToken(plaintext: string, keyHex: string): string {
   const key = Buffer.from(keyHex, 'hex').subarray(0, 32)
-  const iv  = randomBytes(12)
+  const iv = randomBytes(12)
   const cipher = createCipheriv('aes-256-gcm', key, iv)
-  const ct  = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()])
+  const ct = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()])
   const tag = cipher.getAuthTag()
   return Buffer.concat([iv, tag, ct]).toString('base64')
 }
@@ -19,14 +20,16 @@ export interface ConnectedIntegration {
   provider: string
   is_active: boolean
   last_synced_at: string | null
-  provider_user_id: string | null   // canvas_url for Canvas
+  provider_user_id: string | null // canvas_url for Canvas
 }
 
 // ─── Read ─────────────────────────────────────────────────────────────────────
 
 export async function getConnectedIntegrations(): Promise<ConnectedIntegration[]> {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
   if (!user) return []
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -50,7 +53,9 @@ export async function connectCanvas(
   token: string
 ): Promise<{ error: string | null }> {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
 
   // Normalise URL
@@ -58,7 +63,9 @@ export async function connectCanvas(
   if (!normalised.startsWith('http')) normalised = `https://${normalised}`
 
   // Validate it looks like a real URL
-  try { new URL(normalised) } catch {
+  try {
+    new URL(normalised)
+  } catch {
     return { error: 'Invalid Canvas URL — use the format canvas.youruni.edu' }
   }
 
@@ -67,10 +74,13 @@ export async function connectCanvas(
     const res = await fetch(`${normalised}/api/v1/users/self?per_page=1`, {
       headers: { Authorization: `Bearer ${token}` },
     })
-    if (res.status === 401) return { error: 'Invalid token — please generate a new access token in Canvas.' }
+    if (res.status === 401)
+      return { error: 'Invalid token — please generate a new access token in Canvas.' }
     if (!res.ok) return { error: `Canvas returned ${res.status}. Check the URL and try again.` }
   } catch {
-    return { error: 'Could not reach Canvas. Check the URL (no typos, must be your institution\'s Canvas).' }
+    return {
+      error: "Could not reach Canvas. Check the URL (no typos, must be your institution's Canvas).",
+    }
   }
 
   // Encrypt the token before storing
@@ -81,22 +91,31 @@ export async function connectCanvas(
 
   // Upsert into integrations table
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error: upsertErr } = await (supabase as any)
-    .from('integrations')
-    .upsert({
-      user_id:                user.id,
-      provider:               'canvas',
-      provider_user_id:       normalised,
+  const { error: upsertErr } = await (supabase as any).from('integrations').upsert(
+    {
+      user_id: user.id,
+      provider: 'canvas',
+      provider_user_id: normalised,
       access_token_encrypted: encrypted,
-      scopes:                 ['url:GET|/api/v1/courses', 'url:GET|/api/v1/assignments'],
-      is_active:              true,
-      last_synced_at:         null,
-    }, { onConflict: 'user_id,provider' })
+      scopes: ['url:GET|/api/v1/courses', 'url:GET|/api/v1/assignments'],
+      is_active: true,
+      last_synced_at: null,
+    },
+    { onConflict: 'user_id,provider' }
+  )
 
   if (upsertErr) {
     console.error('integrations upsert failed', upsertErr)
     return { error: 'Failed to save integration. Try again.' }
   }
+
+  const posthog = getPostHogClient()
+  posthog.capture({
+    distinctId: user.id,
+    event: 'integration_connected',
+    properties: { provider: 'canvas' },
+  })
+  await posthog.flush()
 
   revalidatePath('/connect')
   revalidatePath('/student')
@@ -110,11 +129,11 @@ export async function connectCanvas(
 
 // ─── Disconnect ───────────────────────────────────────────────────────────────
 
-export async function disconnectIntegration(
-  provider: string
-): Promise<{ error: string | null }> {
+export async function disconnectIntegration(provider: string): Promise<{ error: string | null }> {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -125,6 +144,14 @@ export async function disconnectIntegration(
     .eq('provider', provider)
 
   if (error) return { error: 'Failed to disconnect.' }
+
+  const posthog = getPostHogClient()
+  posthog.capture({
+    distinctId: user.id,
+    event: 'integration_disconnected',
+    properties: { provider },
+  })
+  await posthog.flush()
 
   revalidatePath('/connect')
   revalidatePath('/student')
@@ -138,7 +165,9 @@ export async function disconnectIntegration(
 
 export async function triggerCanvasSync(): Promise<{ error: string | null; synced?: number }> {
   const supabase = await createClient()
-  const { data: { session } } = await supabase.auth.getSession()
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
   if (!session) return { error: 'Not authenticated' }
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -146,16 +175,16 @@ export async function triggerCanvasSync(): Promise<{ error: string | null; synce
 
   try {
     const res = await fetch(`${supabaseUrl}/functions/v1/sync-canvas`, {
-      method:  'POST',
+      method: 'POST',
       headers: { Authorization: `Bearer ${session.access_token}` },
     })
 
     if (!res.ok) {
-      const body = await res.json().catch(() => ({})) as { error?: string }
+      const body = (await res.json().catch(() => ({}))) as { error?: string }
       return { error: body.error ?? `Sync failed (${res.status})` }
     }
 
-    const result = await res.json() as { synced: number; courses: number }
+    const result = (await res.json()) as { synced: number; courses: number }
 
     revalidatePath('/student')
     revalidatePath('/tasks')

@@ -3,14 +3,18 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import type { TaskPriority, TaskStatus } from '@maable/core'
+import { getPostHogClient } from '@/lib/posthog'
 
 const XP_BY_PRIORITY: Record<TaskPriority, number> = {
-  low: 10, medium: 25, high: 50, urgent: 75,
+  low: 10,
+  medium: 25,
+  high: 50,
+  urgent: 75,
 }
 
 // Tag values that have a dedicated category page; used to revalidate those pages after task creation.
 const CATEGORY_TAG_PATHS: Record<string, string> = {
-  career:  '/career',
+  career: '/career',
   hobbies: '/hobbies',
   student: '/student',
 }
@@ -24,22 +28,39 @@ export async function createTask(data: {
   tags?: string[]
 }) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
   if (!data.title.trim()) return { error: 'Title required' }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase as any).from('tasks').insert({
-    user_id:    user.id,
-    title:      data.title.trim(),
-    priority:   data.priority,
-    due_date:   data.due_date,
-    due_time:   data.due_time ?? null,
-    status:     'todo' as TaskStatus,
-    xp_reward:  XP_BY_PRIORITY[data.priority],
+    user_id: user.id,
+    title: data.title.trim(),
+    priority: data.priority,
+    due_date: data.due_date,
+    due_time: data.due_time ?? null,
+    status: 'todo' as TaskStatus,
+    xp_reward: XP_BY_PRIORITY[data.priority],
     sort_order: Math.floor(Date.now() / 1000),
-    tags:       data.tags ?? [],
+    tags: data.tags ?? [],
   })
+
+  if (!error) {
+    const posthog = getPostHogClient()
+    posthog.capture({
+      distinctId: user.id,
+      event: 'task_created',
+      properties: {
+        title: data.title.trim(),
+        priority: data.priority,
+        has_due_date: !!data.due_date,
+        tags: data.tags ?? [],
+      },
+    })
+    await posthog.flush()
+  }
 
   revalidatePath('/tasks')
   for (const tag of data.tags ?? []) {
@@ -51,7 +72,9 @@ export async function createTask(data: {
 
 export async function toggleTask(id: string, currentStatus: TaskStatus) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
 
   const newStatus: TaskStatus = currentStatus === 'done' ? 'todo' : 'done'
@@ -60,7 +83,7 @@ export async function toggleTask(id: string, currentStatus: TaskStatus) {
   const { error } = await (supabase as any)
     .from('tasks')
     .update({
-      status:       newStatus,
+      status: newStatus,
       completed_at: newStatus === 'done' ? new Date().toISOString() : null,
     })
     .eq('id', id)
@@ -70,7 +93,7 @@ export async function toggleTask(id: string, currentStatus: TaskStatus) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: task } = await (supabase as any)
       .from('tasks')
-      .select('xp_reward')
+      .select('xp_reward, priority')
       .eq('id', id)
       .single()
 
@@ -90,6 +113,14 @@ export async function toggleTask(id: string, currentStatus: TaskStatus) {
           .update({ total_xp: newXp, level: Math.floor(newXp / 1000) + 1 })
           .eq('id', user.id)
       }
+
+      const posthog = getPostHogClient()
+      posthog.capture({
+        distinctId: user.id,
+        event: 'task_completed',
+        properties: { task_id: id, priority: task.priority, xp_earned: task.xp_reward },
+      })
+      await posthog.flush()
     }
   }
 
@@ -100,7 +131,9 @@ export async function toggleTask(id: string, currentStatus: TaskStatus) {
 
 export async function archiveTask(id: string) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

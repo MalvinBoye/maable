@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { getPostHogClient } from '@/lib/posthog'
 
 function toTiptapJson(text: string) {
   const paragraphs = text.split('\n').map((line) => ({
@@ -13,23 +14,35 @@ function toTiptapJson(text: string) {
 
 export async function createNote(data: { title: string; body: string; tags?: string[] }) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated', id: null }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: note, error } = await (supabase as any)
     .from('notes')
     .insert({
-      user_id:      user.id,
-      title:        data.title.trim() || 'Untitled',
-      content:      toTiptapJson(data.body),
+      user_id: user.id,
+      title: data.title.trim() || 'Untitled',
+      content: toTiptapJson(data.body),
       content_text: data.body,
-      tags:         data.tags ?? [],
-      is_pinned:    false,
-      is_archived:  false,
+      tags: data.tags ?? [],
+      is_pinned: false,
+      is_archived: false,
     })
     .select('id')
     .single()
+
+  if (!error) {
+    const posthog = getPostHogClient()
+    posthog.capture({
+      distinctId: user.id,
+      event: 'note_created',
+      properties: { has_tags: (data.tags ?? []).length > 0 },
+    })
+    await posthog.flush()
+  }
 
   revalidatePath('/notes')
   return {
@@ -38,17 +51,22 @@ export async function createNote(data: { title: string; body: string; tags?: str
   }
 }
 
-export async function updateNote(id: string, data: { title: string; body: string; tags?: string[] }) {
+export async function updateNote(
+  id: string,
+  data: { title: string; body: string; tags?: string[] }
+) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase as any)
     .from('notes')
     .update({
-      title:        data.title.trim() || 'Untitled',
-      content:      toTiptapJson(data.body),
+      title: data.title.trim() || 'Untitled',
+      content: toTiptapJson(data.body),
       content_text: data.body,
       ...(data.tags !== undefined && { tags: data.tags }),
     })
@@ -61,7 +79,9 @@ export async function updateNote(id: string, data: { title: string; body: string
 
 export async function togglePin(id: string, current: boolean) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -77,7 +97,9 @@ export async function togglePin(id: string, current: boolean) {
 
 export async function deleteNote(id: string) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
