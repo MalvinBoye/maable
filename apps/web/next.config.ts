@@ -49,8 +49,8 @@ const nextConfig: NextConfig = {
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: blob: https://*.supabase.co https://i.scdn.co https://*.mzstatic.com",
               "font-src 'self'",
-              // Supabase realtime + REST, Spotify, Apple Music CDN
-              "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://accounts.spotify.com https://api.spotify.com https://js-cdn.music.apple.com https://api.music.apple.com",
+              // Supabase realtime + REST, Spotify, Apple Music CDN, PostHog
+              "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://accounts.spotify.com https://api.spotify.com https://js-cdn.music.apple.com https://api.music.apple.com https://*.i.posthog.com https://us.i.posthog.com",
               "frame-ancestors 'none'",
               "media-src 'self' blob:",
             ].join('; '),

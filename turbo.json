@@ -13,7 +13,9 @@
     "APPLE_MUSIC_KEY_ID",
     "APPLE_MUSIC_PRIVATE_KEY",
     "APP_URL",
-    "ANTHROPIC_API_KEY"
+    "ANTHROPIC_API_KEY",
+    "NEXT_PUBLIC_POSTHOG_KEY",
+    "NEXT_PUBLIC_POSTHOG_HOST"
   ],
   "tasks": {
     "build": {
