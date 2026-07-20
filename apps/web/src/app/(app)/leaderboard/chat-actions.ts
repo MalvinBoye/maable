@@ -68,16 +68,18 @@ export async function getMessages(friendId: string): Promise<ChatMessage[]> {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return []
 
+  // Fetch messages between me and friend using simple .in() filters.
+  // Because sender != recipient (DB constraint), this returns only our conversation.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data } = await (supabase as any)
+  const { data, error } = await (supabase as any)
     .from('messages')
     .select('*')
-    .or(
-      `and(sender_id.eq.${user.id},recipient_id.eq.${friendId}),and(sender_id.eq.${friendId},recipient_id.eq.${user.id})`
-    )
+    .in('sender_id', [user.id, friendId])
+    .in('recipient_id', [user.id, friendId])
     .order('created_at', { ascending: true })
     .limit(100)
 
+  if (error) return []
   return data ?? []
 }
 

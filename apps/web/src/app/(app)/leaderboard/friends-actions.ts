@@ -75,11 +75,13 @@ export async function sendFriendRequest(addresseeId: string): Promise<{ error: s
 
   if (error) return { error: 'Could not send request' }
 
-  // Notify the addressee
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase as any)
-    .from('notifications')
-    .insert({ user_id: addresseeId, type: 'friend_request', from_user_id: user.id })
+  // Notify the addressee — non-fatal if notifications table not yet migrated
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase as any)
+      .from('notifications')
+      .insert({ user_id: addresseeId, type: 'friend_request', from_user_id: user.id })
+  } catch { /* ignore */ }
 
   revalidatePath('/leaderboard')
   return { error: null }
@@ -103,11 +105,13 @@ export async function respondToFriendRequest(
       .eq('status', 'pending')
     if (error) return { error: 'Could not accept request' }
 
-    // Notify the original requester that their request was accepted
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase as any)
-      .from('notifications')
-      .insert({ user_id: requesterId, type: 'friend_accepted', from_user_id: user.id })
+    // Notify the original requester — non-fatal if notifications table not yet migrated
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase as any)
+        .from('notifications')
+        .insert({ user_id: requesterId, type: 'friend_accepted', from_user_id: user.id })
+    } catch { /* ignore */ }
   } else {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error } = await (supabase as any)

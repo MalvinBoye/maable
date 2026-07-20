@@ -241,6 +241,7 @@ function ChatDrawer({
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [sendError, setSendError] = useState<string | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -302,9 +303,10 @@ function ChatDrawer({
 
     const { error } = await sendMessage(friend.id, text)
     if (error) {
-      // Roll back optimistic on error
       setMessages(prev => prev.filter(m => m.id !== optimistic.id))
       setInput(text)
+      setSendError('Could not send — make sure the chat migration is applied in Supabase')
+      setTimeout(() => setSendError(null), 5000)
     }
     setSending(false)
     inputRef.current?.focus()
@@ -385,6 +387,9 @@ function ChatDrawer({
 
       {/* Input */}
       <div className="px-4 py-3 shrink-0" style={{ borderTop: '1px solid rgba(26,25,22,0.07)' }}>
+        {sendError && (
+          <p style={{ ...G, fontSize: '0.68rem', color: '#dc2626', marginBottom: 6 }}>{sendError}</p>
+        )}
         <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
           <input
             ref={inputRef}
