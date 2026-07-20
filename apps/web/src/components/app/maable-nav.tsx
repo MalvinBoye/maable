@@ -190,6 +190,37 @@ export function MaableNav({ profile, hasNotifications = false }: MaableNavProps)
             </motion.button>
           )}
 
+          {/* ADHD mode quick toggle */}
+          <motion.button
+            onClick={toggleADHD}
+            title={`ADHD mode: ${adhdLevel} — click to cycle`}
+            aria-label="Toggle ADHD mode"
+            whileTap={{ scale: 0.92 }}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 5,
+              padding: '4px 10px',
+              borderRadius: 20,
+              border: `1px solid ${ultraMode ? 'rgba(255,0,255,0.35)' : adhdMode ? 'rgba(255,153,102,0.35)' : 'rgba(26,25,22,0.10)'}`,
+              backgroundColor: ultraMode ? 'rgba(255,0,255,0.06)' : adhdMode ? 'rgba(255,153,102,0.07)' : 'transparent',
+              cursor: 'pointer',
+              transition: 'all 0.18s',
+            }}
+          >
+            <motion.span
+              animate={adhdMode ? { rotate: [0, 15, -15, 0] } : {}}
+              transition={adhdMode ? { repeat: Infinity, duration: ultraMode ? 0.6 : 1.8, ease: 'easeInOut' } : {}}
+              style={{ fontSize: '0.85rem', lineHeight: 1, color: ultraMode ? '#ff00ff' : adhdMode ? '#ff9966' : 'rgba(26,25,22,0.28)' }}
+            >
+              ⚡
+            </motion.span>
+            <span style={{
+              fontFamily: 'Georgia, serif', fontStyle: 'italic', fontSize: '0.72rem',
+              color: ultraMode ? '#ff00ff' : adhdMode ? '#ff9966' : 'rgba(26,25,22,0.35)',
+            }}>
+              {adhdLevel === 'off' ? 'adhd' : adhdLevel}
+            </span>
+          </motion.button>
+
           {/* Breathing button */}
           <button
             onClick={() => setBreathingOpen(true)}
