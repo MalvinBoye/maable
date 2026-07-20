@@ -8,6 +8,7 @@ import type { Profile } from '@maable/core'
 import { TutorialDrawer } from '@/components/app/tutorial-drawer'
 import { BreathingModal } from '@/components/app/breathing-modal'
 import { AvatarDisplay } from '@/components/app/avatar-builder'
+import { NotificationPanel } from '@/components/app/notification-panel'
 import { useADHD } from '@/lib/adhd-context'
 import { useArchitect } from '@/lib/architect-context'
 import { useSimpleMode } from '@/lib/simple-mode-context'
@@ -65,12 +66,16 @@ function buildGreeting(name: string) {
 
 interface MaableNavProps {
   profile: Profile | null
+  notificationCount?: number
+  /** @deprecated use notificationCount */
   hasNotifications?: boolean
 }
 
-export function MaableNav({ profile, hasNotifications = false }: MaableNavProps) {
+export function MaableNav({ profile, notificationCount = 0, hasNotifications = false }: MaableNavProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [breathingOpen, setBreathingOpen] = useState(false)
+  const [notifOpen, setNotifOpen] = useState(false)
+  const [notifSeen, setNotifSeen] = useState(false)
   const pathname = usePathname()
   const router = useRouter()
   const isHome = pathname === '/dashboard'
@@ -235,18 +240,29 @@ export function MaableNav({ profile, hasNotifications = false }: MaableNavProps)
             </span>
           </button>
 
-          <button className="relative group" aria-label="Notifications">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/illustrations/icon-eh.png"
-              alt="eh?"
-              className="h-8 object-contain opacity-75 group-hover:opacity-100 transition-opacity"
-              draggable={false}
+          <div className="relative">
+            <button
+              className="relative group"
+              aria-label="Notifications"
+              onClick={() => setNotifOpen(o => !o)}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/illustrations/icon-eh.png"
+                alt="eh?"
+                className="h-8 object-contain opacity-75 group-hover:opacity-100 transition-opacity"
+                draggable={false}
+              />
+              {(notificationCount > 0 || hasNotifications) && !notifSeen && (
+                <span className="absolute -top-0.5 -right-1 w-2 h-2 rounded-full bg-red-500" />
+              )}
+            </button>
+            <NotificationPanel
+              open={notifOpen}
+              onClose={() => setNotifOpen(false)}
+              onRead={() => setNotifSeen(true)}
             />
-            {hasNotifications && (
-              <span className="absolute -top-0.5 -right-1 w-2 h-2 rounded-full bg-red-500" />
-            )}
-          </button>
+          </div>
 
           <Link href="/profile" aria-label="Profile">
             <div className="w-11 h-11 rounded-full border border-stone-200 overflow-hidden hover:border-stone-400 transition-colors flex items-center justify-center" style={{ backgroundColor: '#0a0908' }}>

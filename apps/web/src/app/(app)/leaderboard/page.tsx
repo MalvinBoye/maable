@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import type { LeaderboardEntry } from '@maable/core'
 import { LeaderboardClient } from './leaderboard-client'
 import { getIncomingRequests } from './friends-actions'
+import { getFriends } from './chat-actions'
 
 export default async function LeaderboardPage() {
   const supabase = await createClient()
@@ -10,10 +11,11 @@ export default async function LeaderboardPage() {
   if (!user) redirect('/login')
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [{ data: global }, { data: friends }, incomingRequests] = await Promise.all([
+  const [{ data: global }, { data: friends }, incomingRequests, friendsList] = await Promise.all([
     (supabase as any).from('leaderboard_global').select('*').order('rank', { ascending: true }).limit(50),
     (supabase as any).from('leaderboard_friends').select('*').eq('viewer_user_id', user.id).order('rank', { ascending: true }).limit(50),
     getIncomingRequests(),
+    getFriends(),
   ])
 
   return (
@@ -22,6 +24,7 @@ export default async function LeaderboardPage() {
       friends={(friends ?? []) as LeaderboardEntry[]}
       currentUserId={user.id}
       incomingRequests={incomingRequests}
+      friendsList={friendsList}
     />
   )
 }

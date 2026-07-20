@@ -74,6 +74,13 @@ export async function sendFriendRequest(addresseeId: string): Promise<{ error: s
     .insert({ requester_id: user.id, addressee_id: addresseeId, status: 'pending' })
 
   if (error) return { error: 'Could not send request' }
+
+  // Notify the addressee
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (supabase as any)
+    .from('notifications')
+    .insert({ user_id: addresseeId, type: 'friend_request', from_user_id: user.id })
+
   revalidatePath('/leaderboard')
   return { error: null }
 }
@@ -95,6 +102,12 @@ export async function respondToFriendRequest(
       .eq('addressee_id', user.id)
       .eq('status', 'pending')
     if (error) return { error: 'Could not accept request' }
+
+    // Notify the original requester that their request was accepted
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase as any)
+      .from('notifications')
+      .insert({ user_id: requesterId, type: 'friend_accepted', from_user_id: user.id })
   } else {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error } = await (supabase as any)

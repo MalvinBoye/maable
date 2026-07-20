@@ -13,9 +13,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (!user) redirect('/login')
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [{ data: profileData }, { count: pendingCount }] = await Promise.all([
+  const [{ data: profileData }, { count: notifCount }] = await Promise.all([
     supabase.from('profiles').select('*').eq('id', user.id).single(),
-    (supabase as any).from('friendships').select('*', { count: 'exact', head: true }).eq('addressee_id', user.id).eq('status', 'pending'),
+    (supabase as any).from('notifications').select('*', { count: 'exact', head: true }).eq('user_id', user.id).eq('read', false),
   ])
 
   const profile = profileData as Profile | null
@@ -29,7 +29,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <AppProviders>
       <SkinProvider slug={profile?.current_skin_id} />
       <div className="min-h-dvh flex flex-col" style={{ backgroundColor: 'var(--paper, #ffffff)' }}>
-        <MaableNav profile={profile} hasNotifications={(pendingCount ?? 0) > 0} />
+        <MaableNav profile={profile} notificationCount={notifCount ?? 0} />
         <main className="flex-1">
           {children}
         </main>

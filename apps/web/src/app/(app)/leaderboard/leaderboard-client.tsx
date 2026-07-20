@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition, useCallback } from 'react'
+import { useState, useTransition, useCallback, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { LeaderboardEntry } from '@maable/core'
 import {
@@ -10,6 +10,14 @@ import {
   type UserSearchResult,
   type FriendRequest,
 } from './friends-actions'
+import {
+  getMessages,
+  sendMessage,
+  markMessagesRead,
+  type FriendInfo,
+  type ChatMessage,
+} from './chat-actions'
+import { createClient } from '@/lib/supabase/client'
 
 // ─── Rank badge ───────────────────────────────────────────────────────────────
 
@@ -122,7 +130,7 @@ function PendingRow({ req, onRespond }: { req: FriendRequest; onRespond: (id: st
   )
 }
 
-// ─── Friends drawer ───────────────────────────────────────────────────────────
+// ─── Friends drawer (find/add) ────────────────────────────────────────────────
 
 function FriendsDrawer({
   initialRequests,
@@ -169,13 +177,11 @@ function FriendsDrawer({
       className="absolute inset-y-0 right-0 z-20 flex flex-col bg-white"
       style={{ width: 360, borderLeft: '1px solid rgba(26,25,22,0.08)', boxShadow: '-8px 0 32px rgba(0,0,0,0.06)' }}
     >
-      {/* Header */}
       <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid rgba(26,25,22,0.07)' }}>
         <p className="text-base text-stone-800" style={{ fontFamily: 'Georgia, serif', fontStyle: 'italic' }}>Find friends</p>
         <button onClick={onClose} className="text-stone-400 hover:text-stone-600 transition-colors text-lg leading-none">✕</button>
       </div>
 
-      {/* Search input */}
       <div className="px-5 py-3" style={{ borderBottom: '1px solid rgba(26,25,22,0.07)' }}>
         <input
           value={query}
@@ -188,36 +194,27 @@ function FriendsDrawer({
       </div>
 
       <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
-        {/* Search results */}
         {query.length >= 2 && (
           <div>
             <p className="px-4 py-2 text-xs text-stone-400 tracking-widest uppercase" style={{ fontFamily: 'Georgia, serif' }}>
               {searching ? 'Searching...' : results.length === 0 ? 'No results' : 'Results'}
             </p>
-            {results.map(r => (
-              <SearchResultRow key={r.id} result={r} onAdd={handleAdd} />
-            ))}
+            {results.map(r => <SearchResultRow key={r.id} result={r} onAdd={handleAdd} />)}
           </div>
         )}
 
-        {/* Pending incoming requests */}
         {requests.length > 0 && (
           <div>
             <p className="px-4 pt-4 pb-2 text-xs text-stone-400 tracking-widest uppercase" style={{ fontFamily: 'Georgia, serif' }}>
               Friend requests ({requests.length})
             </p>
-            {requests.map(r => (
-              <PendingRow key={r.requester_id} req={r} onRespond={handleRespond} />
-            ))}
+            {requests.map(r => <PendingRow key={r.requester_id} req={r} onRespond={handleRespond} />)}
           </div>
         )}
 
-        {/* Empty state */}
         {query.length < 2 && requests.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full gap-3 pb-16 opacity-50">
-            <p className="text-sm text-stone-400" style={{ fontFamily: 'Georgia, serif', fontStyle: 'italic' }}>
-              Search for someone to add
-            </p>
+            <p className="text-sm text-stone-400" style={{ fontFamily: 'Georgia, serif', fontStyle: 'italic' }}>Search for someone to add</p>
           </div>
         )}
       </div>
@@ -229,6 +226,201 @@ function FriendsDrawer({
   )
 }
 
+// ─── Chat drawer ──────────────────────────────────────────────────────────────
+
+function ChatDrawer({
+  friend,
+  currentUserId,
+  onClose,
+}: {
+  friend: FriendInfo
+  currentUserId: string
+  onClose: () => void
+}) {
+  const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [input, setInput] = useState('')
+  const [sending, setSending] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const bottomRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const G = { fontFamily: 'Georgia, serif', fontStyle: 'italic' as const }
+
+  // Load history + mark read + Realtime
+  useEffect(() => {
+    let active = true
+    getMessages(friend.id).then(msgs => {
+      if (active) { setMessages(msgs); setLoading(false) }
+    })
+    markMessagesRead(friend.id)
+
+    // Realtime: listen for new messages I receive
+    const supabase = createClient()
+    const channel = supabase
+      .channel(`chat:${currentUserId}:${friend.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'messages', filter: `recipient_id=eq.${currentUserId}` },
+        payload => {
+          const msg = payload.new as ChatMessage
+          if (msg.sender_id === friend.id) {
+            setMessages(prev => [...prev, msg])
+            markMessagesRead(friend.id)
+          }
+        },
+      )
+      .subscribe()
+
+    return () => {
+      active = false
+      supabase.removeChannel(channel)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [friend.id, currentUserId])
+
+  // Scroll to bottom on new messages
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
+
+  const handleSend = async () => {
+    const text = input.trim()
+    if (!text || sending) return
+    setSending(true)
+    setInput('')
+
+    // Optimistic add
+    const optimistic: ChatMessage = {
+      id: `opt-${Date.now()}`,
+      sender_id: currentUserId,
+      recipient_id: friend.id,
+      content: text,
+      read: false,
+      created_at: new Date().toISOString(),
+    }
+    setMessages(prev => [...prev, optimistic])
+
+    const { error } = await sendMessage(friend.id, text)
+    if (error) {
+      // Roll back optimistic on error
+      setMessages(prev => prev.filter(m => m.id !== optimistic.id))
+      setInput(text)
+    }
+    setSending(false)
+    inputRef.current?.focus()
+  }
+
+  function fmtTime(iso: string) {
+    return new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+  }
+
+  return (
+    <motion.div
+      initial={{ x: '100%' }}
+      animate={{ x: 0 }}
+      exit={{ x: '100%' }}
+      transition={{ type: 'spring', stiffness: 320, damping: 34 }}
+      className="absolute inset-y-0 right-0 z-20 flex flex-col bg-white"
+      style={{ width: 360, borderLeft: '1px solid rgba(26,25,22,0.08)', boxShadow: '-8px 0 32px rgba(0,0,0,0.06)' }}
+    >
+      {/* Header */}
+      <div className="flex items-center gap-3 px-5 py-4 shrink-0" style={{ borderBottom: '1px solid rgba(26,25,22,0.07)' }}>
+        <div className="w-8 h-8 rounded-full overflow-hidden border border-stone-100 shrink-0">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={friend.avatar_url ?? '/illustrations/avatar-user.png'} alt={friend.display_name} className="w-full h-full object-cover" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm text-stone-800 truncate" style={{ ...G }}>{friend.display_name}</p>
+          <p className="text-xs text-stone-400">@{friend.username}</p>
+        </div>
+        <button onClick={onClose} className="text-stone-400 hover:text-stone-600 transition-colors text-lg leading-none shrink-0">✕</button>
+      </div>
+
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-2" style={{ scrollbarWidth: 'none' }}>
+        {loading ? (
+          <div className="flex-1 flex items-center justify-center">
+            <p style={{ ...G, fontSize: '0.78rem', color: 'rgba(26,25,22,0.35)' }}>Loading...</p>
+          </div>
+        ) : messages.length === 0 ? (
+          <div className="flex-1 flex flex-col items-center justify-center gap-2 pb-8 opacity-50">
+            <p style={{ ...G, fontSize: '0.85rem', color: '#78716c' }}>No messages yet</p>
+            <p style={{ ...G, fontSize: '0.72rem', color: '#a8a29e' }}>Say something to {friend.display_name}</p>
+          </div>
+        ) : (
+          messages.map((msg, i) => {
+            const isMine = msg.sender_id === currentUserId
+            const showTime = i === 0 || (new Date(msg.created_at).getTime() - new Date(messages[i - 1]!.created_at).getTime()) > 300_000
+            return (
+              <div key={msg.id}>
+                {showTime && (
+                  <p style={{ ...G, fontSize: '0.62rem', color: 'rgba(26,25,22,0.30)', textAlign: 'center', margin: '4px 0' }}>
+                    {fmtTime(msg.created_at)}
+                  </p>
+                )}
+                <div style={{ display: 'flex', justifyContent: isMine ? 'flex-end' : 'flex-start' }}>
+                  <div
+                    style={{
+                      maxWidth: '75%',
+                      padding: '8px 12px',
+                      borderRadius: isMine ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
+                      backgroundColor: isMine ? '#1a1916' : 'rgba(26,25,22,0.06)',
+                      ...G,
+                      fontSize: '0.82rem',
+                      color: isMine ? '#fff' : '#1a1916',
+                      lineHeight: 1.45,
+                      wordBreak: 'break-word',
+                      opacity: msg.id.startsWith('opt-') ? 0.6 : 1,
+                    }}
+                  >
+                    {msg.content}
+                  </div>
+                </div>
+              </div>
+            )
+          })
+        )}
+        <div ref={bottomRef} />
+      </div>
+
+      {/* Input */}
+      <div className="px-4 py-3 shrink-0" style={{ borderTop: '1px solid rgba(26,25,22,0.07)' }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+          <input
+            ref={inputRef}
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
+            placeholder={`Message ${friend.display_name}...`}
+            disabled={sending}
+            autoFocus
+            style={{
+              flex: 1, ...G, fontSize: '0.82rem', color: '#1a1916',
+              border: '1px solid rgba(26,25,22,0.12)',
+              borderRadius: 20, padding: '8px 14px',
+              backgroundColor: 'rgba(26,25,22,0.02)',
+              outline: 'none',
+            }}
+          />
+          <button
+            onClick={handleSend}
+            disabled={!input.trim() || sending}
+            style={{
+              width: 34, height: 34, borderRadius: '50%',
+              backgroundColor: input.trim() && !sending ? '#1a1916' : 'rgba(26,25,22,0.10)',
+              border: 'none', cursor: input.trim() && !sending ? 'pointer' : 'default',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0, transition: 'background-color 0.15s',
+            }}
+          >
+            <span style={{ color: input.trim() && !sending ? '#fff' : 'rgba(26,25,22,0.35)', fontSize: '0.9rem', marginLeft: 1 }}>→</span>
+          </button>
+        </div>
+      </div>
+    </motion.div>
+  )
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export function LeaderboardClient({
@@ -236,22 +428,38 @@ export function LeaderboardClient({
   friends,
   currentUserId,
   incomingRequests,
+  friendsList,
 }: {
   global: LeaderboardEntry[]
   friends: LeaderboardEntry[]
   currentUserId: string
   incomingRequests: FriendRequest[]
+  friendsList: FriendInfo[]
 }) {
   const [tab, setTab] = useState<'global' | 'friends'>('global')
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [chatFriend, setChatFriend] = useState<FriendInfo | null>(null)
+
+  // Maintain local unread counts so they clear when you open a chat
+  const [localFriends, setLocalFriends] = useState<FriendInfo[]>(friendsList)
+
   const entries = tab === 'global' ? global : friends
   const currentUserRank = entries.find(e => e.user_id === currentUserId)
+
+  const openChat = (f: FriendInfo) => {
+    setChatFriend(f)
+    setDrawerOpen(false)
+    // Clear unread badge locally
+    setLocalFriends(prev => prev.map(lf => lf.id === f.id ? { ...lf, unread_count: 0 } : lf))
+  }
+
+  const totalUnread = localFriends.reduce((s, f) => s + f.unread_count, 0)
 
   return (
     <div className="flex h-[calc(100dvh-4.5rem)] bg-white overflow-hidden relative">
 
       {/* ── Sidebar ─────────────────────────────────────────────────────────── */}
-      <aside className="flex flex-col shrink-0 py-8 pl-10 pr-6" style={{ width: 260, borderRight: '1px solid rgba(26,25,22,0.07)' }}>
+      <aside className="flex flex-col shrink-0 py-8 pl-10 pr-6 overflow-y-auto" style={{ width: 260, borderRight: '1px solid rgba(26,25,22,0.07)', scrollbarWidth: 'none' }}>
         <h1 className="text-4xl text-stone-900 mb-2 leading-none" style={{ fontFamily: 'Georgia, serif', fontStyle: 'italic' }}>Leaderboard</h1>
         <p className="text-sm text-stone-400 mb-8">{entries.length} players</p>
 
@@ -268,8 +476,8 @@ export function LeaderboardClient({
 
         {/* Find friends button */}
         <button
-          onClick={() => setDrawerOpen(true)}
-          className="flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors"
+          onClick={() => { setDrawerOpen(true); setChatFriend(null) }}
+          className="flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors mb-5"
           style={{ color: '#78716c', fontFamily: 'Georgia, serif', fontStyle: 'italic', border: '1px solid rgba(26,25,22,0.1)' }}
         >
           <span>+ Find friends</span>
@@ -279,6 +487,47 @@ export function LeaderboardClient({
             </span>
           )}
         </button>
+
+        {/* Friends chat list */}
+        {localFriends.length > 0 && (
+          <div>
+            <p className="text-xs text-stone-300 mb-2 tracking-widest uppercase" style={{ fontFamily: 'Georgia, serif' }}>
+              Messages
+              {totalUnread > 0 && (
+                <span className="ml-2 px-1.5 py-0.5 rounded-full bg-stone-900 text-white text-xs" style={{ fontFamily: 'monospace' }}>
+                  {totalUnread}
+                </span>
+              )}
+            </p>
+            <div className="flex flex-col gap-0.5">
+              {localFriends.map(f => (
+                <button
+                  key={f.id}
+                  onClick={() => openChat(f)}
+                  className="flex items-center gap-2.5 px-2 py-2 text-left rounded transition-colors"
+                  style={{
+                    backgroundColor: chatFriend?.id === f.id ? 'rgba(26,25,22,0.06)' : 'transparent',
+                  }}
+                  onMouseEnter={e => { if (chatFriend?.id !== f.id) e.currentTarget.style.backgroundColor = 'rgba(26,25,22,0.03)' }}
+                  onMouseLeave={e => { if (chatFriend?.id !== f.id) e.currentTarget.style.backgroundColor = 'transparent' }}
+                >
+                  <div className="w-7 h-7 rounded-full overflow-hidden border border-stone-100 shrink-0 relative">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={f.avatar_url ?? '/illustrations/avatar-user.png'} alt={f.display_name} className="w-full h-full object-cover" />
+                  </div>
+                  <span className="flex-1 text-xs text-stone-700 truncate" style={{ fontFamily: 'Georgia, serif', fontStyle: 'italic' }}>
+                    {f.display_name}
+                  </span>
+                  {f.unread_count > 0 && (
+                    <span className="w-4 h-4 rounded-full bg-stone-900 text-white flex items-center justify-center shrink-0" style={{ fontFamily: 'monospace', fontSize: 9 }}>
+                      {f.unread_count}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* My rank */}
         {currentUserRank && (
@@ -292,7 +541,7 @@ export function LeaderboardClient({
         <div className={currentUserRank ? '' : 'flex-1'} />
 
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/illustrations/category-career.png" alt="" className="w-28 opacity-20 object-contain self-center" draggable={false} />
+        <img src="/illustrations/category-career.png" alt="" className="w-28 opacity-20 object-contain self-center mt-4" draggable={false} />
       </aside>
 
       {/* ── List ────────────────────────────────────────────────────────────── */}
@@ -314,7 +563,6 @@ export function LeaderboardClient({
           </div>
         ) : (
           <div className="py-8">
-            {/* Top 3 podium */}
             {entries.slice(0, 3).length > 0 && (
               <div className="flex items-end justify-center gap-6 px-10 mb-10">
                 {[entries[1], entries[0], entries[2]].filter(Boolean).map((entry, i) => {
@@ -337,7 +585,6 @@ export function LeaderboardClient({
               </div>
             )}
 
-            {/* Full list */}
             <div className="divide-y divide-stone-50">
               {entries.map((entry, i) => (
                 <LeaderRow key={entry.user_id} entry={entry} isCurrentUser={entry.user_id === currentUserId} index={i} />
@@ -347,12 +594,21 @@ export function LeaderboardClient({
         )}
       </main>
 
-      {/* ── Friends drawer ───────────────────────────────────────────────────── */}
+      {/* ── Drawers ──────────────────────────────────────────────────────────── */}
       <AnimatePresence>
-        {drawerOpen && (
+        {drawerOpen && !chatFriend && (
           <FriendsDrawer
+            key="find"
             initialRequests={incomingRequests}
             onClose={() => setDrawerOpen(false)}
+          />
+        )}
+        {chatFriend && (
+          <ChatDrawer
+            key={`chat-${chatFriend.id}`}
+            friend={chatFriend}
+            currentUserId={currentUserId}
+            onClose={() => setChatFriend(null)}
           />
         )}
       </AnimatePresence>
