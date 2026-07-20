@@ -206,13 +206,6 @@ export function MaableNav({ profile, hasNotifications = false }: MaableNavProps)
               transition: 'all 0.18s',
             }}
           >
-            <motion.span
-              animate={adhdMode ? { rotate: [0, 15, -15, 0] } : {}}
-              transition={adhdMode ? { repeat: Infinity, duration: ultraMode ? 0.6 : 1.8, ease: 'easeInOut' } : {}}
-              style={{ fontSize: '0.85rem', lineHeight: 1, color: ultraMode ? '#ff00ff' : adhdMode ? '#ff9966' : 'rgba(26,25,22,0.28)' }}
-            >
-              ⚡
-            </motion.span>
             <span style={{
               fontFamily: 'Georgia, serif', fontStyle: 'italic', fontSize: '0.72rem',
               color: ultraMode ? '#ff00ff' : adhdMode ? '#ff9966' : 'rgba(26,25,22,0.35)',
