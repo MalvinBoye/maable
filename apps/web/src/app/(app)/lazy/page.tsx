@@ -11,12 +11,17 @@ export default async function LazyPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const s = supabase as any
 
-  const { data: tasks } = await s
-    .from('tasks')
-    .select('id, title, priority, due_date, status, tags, sort_order')
-    .eq('user_id', user.id)
-    .in('status', ['todo', 'in_progress'])
-    .order('sort_order', { ascending: true })
+  const [{ data: tasks }, { data: profile }] = await Promise.all([
+    s.from('tasks')
+      .select('id, title, priority, due_date, status, tags, sort_order')
+      .eq('user_id', user.id)
+      .in('status', ['todo', 'in_progress'])
+      .order('sort_order', { ascending: true }),
+    s.from('profiles')
+      .select('display_name, username, avatar_url, level, total_xp')
+      .eq('id', user.id)
+      .single(),
+  ])
 
-  return <LazyClient tasks={(tasks ?? []) as Task[]} />
+  return <LazyClient tasks={(tasks ?? []) as Task[]} profile={profile ?? null} />
 }
